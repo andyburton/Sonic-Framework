@@ -52,7 +52,58 @@ class Sonic
 	
 	public static function _autoload ($class)
 	{
-		spl_autoload ($class);
+		
+		// If we're loading a sonic class
+		
+		if (stripos ($class, 'Sonic\\') === 0)
+		{
+			
+			// Replace namespace \ with dir seperate
+
+			if ('\\' !== DIRECTORY_SEPARATOR)
+			{
+				$class = str_replace ('\\', DIRECTORY_SEPARATOR, $class);
+			}
+			
+			if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $class . '.php'))
+			{
+				@include_once (ABS_SONIC . $class . '.php');
+			}
+			else
+			{
+				@include_once (ABS_CLASSES . $class . '.php');
+			}
+			
+		}
+		
+	}
+	
+	
+	/**
+	 * Check if a sonic class exists
+	 * @param string $class Class name
+	 * @return type 
+	 */
+	
+	public static function _classExists ($class)
+	{
+		
+		// Replace namespace \ with dir seperate
+
+		if ('\\' !== DIRECTORY_SEPARATOR)
+		{
+			$class = str_replace ('\\', DIRECTORY_SEPARATOR, $class);
+		}
+
+		if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $class . '.php'))
+		{
+			return TRUE;
+		}
+		else
+		{
+			return file_exists (ABS_CLASSES . $class . '.php');
+		}
+		
 	}
 	
 	

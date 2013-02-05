@@ -21,58 +21,122 @@ $tplPage	= 'newclass.tpl';
 $class		= new Model\Tools\NewClass;
 $db			= new Model\Tools\Db;
 
-// If the form is submitted
+// If there is a table reload
 
-if (isset ($_POST['create_class']) || isset ($_POST['create_save_class']))
+if (isset ($_POST['reload_tables']) && $_POST['reload_tables'] == '1')
+{
+	$class->fromPost ();
+}
+
+// If the form is submitted or there is a URL action (from an overwrite/merge request)
+
+if (isset ($_POST['create_class']) || isset ($_POST['create_save_class']) || 
+	(isset ($_POST['create_action']) && !empty ($_POST['create_action'])))
 {
 	
-	// Set template to display
-
-	$tplPage	= 'newclass_submitted.tpl';
+	// Set action, overwrite and merge status
+	
+	$action		= $_POST['create_action'] == 'save' || isset ($_POST['create_save_class'])? 'save' : 'view';
+	$overwrite	= $_POST['class_overwrite'] == '1';
+	$merge		= $_POST['class_merge'] == '1';
 	
 	// Get the class details from the form
 	
 	$class->fromPost ();
+
+	// Split namespace to work out directory
+
+	$namespace	= explode ('\\', $class->get ('namespace'));
+
+	// Set class path
+
+	$classDir	= ABS_CLASSES . implode ('/', $namespace) . '/';
+	$className	= $class->get ('name') . '.php';
+	$classPath	= $classDir . $className;
 	
-	// Generate class
+	// If the class already exists and there is no overwrite or merge
 	
-	$classData	= $class->Generate();
-	
-	// Set page variables
-	
-	$tpl->assign ('class_generated', $classData);
-	
-	// If save
-	
-	if (isset ($_POST['create_save_class']))
+	if (file_exists ($classPath) && !$overwrite && !$merge)
 	{
 		
-		// Split namespace to work out directory
+		// Request whether to overwrite or merge
 		
-		$namespace	= explode ('\\', $class->get ('namespace'));
+		$tplPage	= 'newclass_exists.tpl';
+		$tpl->assign ('action',		$action);
 		
-		// Set class path
+	}
+	
+	// Else the class doesn't exist or we are overwriting or merging it
+	
+	else
+	{
 		
-		$classDir	= ABS_CLASSES . implode ('/', $namespace) . '/';
-		$className	= $class->get ('name') . '.php';
-		$classPath	= $classDir . $className;
+		// If we are merging
 		
-		// Make directory
-		
-		if (!is_dir ($classDir))
+		if ($merge)
 		{
-			mkdir ($classDir, 0700, TRUE);
+			
+			// Load the existing class
+			
+			$classData	= file_get_contents ($classPath);
+			
+			// Generate new attributes
+			
+			$class->tabUp (FALSE);
+			$class->generateAttributes ();
+			
+			// Replace attributes
+			
+			$properties	= Model\Tools\Comment::phpdocComment ($class->generateProperties ());
+			
+			if (preg_match ('/\/\*\*\n \* Class Properties:\n(.*?)\n \*\//si', $classData) == 1)
+			{
+				$classData	= preg_replace ('/\/\*\*\n \* Class Properties:\n(.*?)\n \*\//si', $properties, $classData);
+			}
+			else
+			{
+				$classData	= preg_replace ('/\nclass ' . $class->get ('name') . '/si', "\n" . $properties . "\n\n" . 'class ' . $class->get ('name'), $classData);
+			}
+			
+			$classData	= preg_replace ('/\tprotected static \$attributes(.*?)\);\n/si', $class->class, $classData);
+			
 		}
 		
-		// Write class
+		// Else just generate the class from scratch
 		
-		if (file_put_contents ($classPath, $classData))
-		{
-			$tpl->assign ('msg_success', 'Class saved to ' . $classPath);
-		}
 		else
 		{
-			$tpl->assign ('msg_error', 'Class could not be saved to ' . $classPath);
+			$classData	= $class->Generate ();
+		}
+
+		// Set page variables
+
+		$tpl->assign ('class_generated', $classData);
+		$tplPage	= 'newclass_submitted.tpl';
+		
+		// If save
+
+		if ($action == 'save')
+		{
+
+			// Make directory
+
+			if (!is_dir ($classDir))
+			{
+				mkdir ($classDir, 0700, TRUE);
+			}
+
+			// Write class
+
+			if (file_put_contents ($classPath, $classData))
+			{
+				$tpl->assign ('msg_success', 'Class saved to ' . $classPath);
+			}
+			else
+			{
+				$tpl->assign ('msg_error', 'Class could not be saved to ' . $classPath);
+			}
+
 		}
 		
 	}

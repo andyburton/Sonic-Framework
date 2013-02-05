@@ -7,6 +7,24 @@ $(function ()
 		this.select ();
 	});
 	
+	$('#class_overwrite_link').click (function ()
+	{
+		$('#class_overwrite').val ('1');
+		$('#create_class_form').submit ();
+	});
+	
+	$('#class_merge_link').click (function ()
+	{
+		$('#class_merge').val ('1');
+		$('#create_class_form').submit ();
+	});
+	
+	$('#newclass_database').change (function ()
+	{
+		$('#reload_tables').val ('1');
+		$('#create_class_form').submit ();
+	});
+	
 	$('#newclass_table').change (function ()
 	{
 		
@@ -19,7 +37,7 @@ $(function ()
 	
 	$('#create_save_class').click (function ()
 	{
-		return confirm ('This will overwrite any existing class. Are you sure?');
+//		return confirm ('This will overwrite any existing class. Are you sure?');
 	});
 	
 	$('#newclass_table').trigger ('change');

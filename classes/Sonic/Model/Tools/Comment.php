@@ -10,6 +10,113 @@ class Comment
 {
 	
 	
+	public $comment	= FALSE;
+	private $lines	= array ();
+	
+	
+	/**
+	 * Instantiate class
+	 * @param string $comment Comment to process
+	 * @return void
+	 */
+	
+	public function __construct ($comment)
+	{
+		$this->comment	= $comment;
+		$this->lines	= explode ("\n", self::cleanComment ($comment));
+	}
+	
+	
+	/**
+	 * Check if a tag is set in the comment
+	 * @param string $tag Tag to check for e.g. ignore = @ignore
+	 * @return boolean 
+	 */
+	
+	public function hasTag ($tag)
+	{
+		
+		foreach ($this->lines as $line)
+		{
+			if (strpos ($line, '@' . $tag) === 0)
+			{
+				return TRUE;
+			}
+		}
+		
+		return FALSE;
+		
+	}
+	
+	/**
+	 * Return array of matching tags
+	 * @param string $tag Tags to return
+	 * @return array
+	 */
+	
+	public function getTags ($tag)
+	{
+		
+		$tags	= array ();
+		
+		foreach ($this->lines as $line)
+		{
+			if (strpos ($line, '@' . $tag) === 0)
+			{
+				$tags[]	= trim (substr ($line, strlen ('@' . $tag)));
+			}
+		}
+		
+		return $tags;
+		
+	}
+	
+	
+	/**
+	 * Return short description
+	 * This is the first line of a comment e.g. the line above
+	 * @return string 
+	 */
+	
+	public function getShortDescription ()
+	{
+		return isset ($this->lines[0])? $this->lines[0] : NULL;
+	}
+	
+	
+	/**
+	 * Return long description
+	 * This is every other line of a comment besides the first line and any tags
+	 * @return string 
+	 */
+	
+	public function getLongDescription ()
+	{
+		
+		$comment	= '';
+		
+		foreach ($this->lines as $key => $line)
+		{
+			
+			if ($key == 0 || ($line && $line[0] == '@'))
+			{
+				continue; 
+			}
+			
+			if ($comment)
+			{
+				$comment	.= "\n";
+			}
+			
+			$comment .= $line;
+			
+		}
+		
+		return $comment;
+		
+	}
+	
+	
 	/**
 	 * Return a stared comment
 	 * @param string $strComment Comment
@@ -311,9 +418,9 @@ class Comment
 					foreach ($arrLines as &$strLine)
 					{
 						
-						// Remove prefix
+						// Remove prefix and clean whitespace
 						
-						$strLine	= substr ($strLine, $intFirstSlash);
+						$strLine	= trim (substr ($strLine, $intFirstSlash));
 						
 						// If the first char is a *
 						

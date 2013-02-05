@@ -15,7 +15,7 @@ class NewClass extends \Sonic\Model
 	 * @var string
 	 */
 	
-	protected $class			= '';
+	public $class				= '';
 	
 	/**
 	 * Tab indent count
@@ -72,6 +72,11 @@ class NewClass extends \Sonic\Model
 			'set'		=> TRUE,
 			'default'	=> ''
 		),
+		'extends'		=> array (
+			'get'		=> TRUE,
+			'set'		=> TRUE,
+			'default'	=> '\\Sonic\\Model'
+		),
 		'pk'			=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE
@@ -94,17 +99,22 @@ class NewClass extends \Sonic\Model
 		'email'			=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'andy@buddi.co.uk'
+			'default'	=> 'andy@andyburton.co.uk'
 		),
 		'link'			=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'http://www.buddi.co.uk'
+			'default'	=> 'http://www.andyburton.co.uk'
 		),
 		'copyright'		=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'buddi'
+			'default'	=> 'Andy Burton'
+		),
+		'database'		=> array (
+			'get'		=> TRUE,
+			'set'		=> TRUE,
+			'default'	=> ''
 		),
 		'table'			=> array (
 			'get'		=> TRUE,
@@ -121,6 +131,7 @@ class NewClass extends \Sonic\Model
 		parent::__construct ();
 		
 		$this->set ('date_created', date ('d/m/Y'));
+		$this->set ('database', $this->db->getDatabaseName ());
 		
 	}
 	
@@ -156,25 +167,20 @@ class NewClass extends \Sonic\Model
 			
 		}
 		
-		// Start script and define namespace
+		// Start script
 		
 		$this->addLine ('<?php');
-		$this->addLine ();
-		$this->lineComment ('Define namespace');
-		$this->addLine ();
-		$this->addLine ('namespace ' . $this->get ('namespace') . ';');
-		$this->addLine ();
 		$this->addLine ();
 		
 		// Add class comment
 		
 		$comment	= 
 			($this->get ('description')?	$this->get ('description') . "\n\n" : NULL) . 
-			($this->get ('author')?			$this->tabVals ('@author',		$this->get ('author'), 2, '') . "\n" : NULL) . 
-			($this->get ('email')?			$this->tabVals ('@email',		$this->get ('email'), 2, '') . "\n" : NULL) . 
-			($this->get ('link')?			$this->tabVals ('@link',		$this->get ('link'), 2, '') . "\n" : NULL) . 
-			($this->get ('copyright')?		$this->tabVals ('@copyright ',	$this->get ('copyright'), 2, '') . "\n" : NULL) . 
-			($this->get ('date_created')?	$this->tabVals ('@datecreated',	$this->get ('date_created'), 2, '') . "\n" : NULL);
+			($this->get ('author')?			$this->tabVals ('@author',		$this->get ('author'), 4, '') . "\n" : NULL) . 
+			($this->get ('email')?			$this->tabVals ('@email',		$this->get ('email'), 4, '') . "\n" : NULL) . 
+			($this->get ('link')?			$this->tabVals ('@link',		$this->get ('link'), 4, '') . "\n" : NULL) . 
+			($this->get ('copyright')?		$this->tabVals ('@copyright ',	$this->get ('copyright'), 4, '') . "\n" : NULL) . 
+			($this->get ('date_created')?	$this->tabVals ('@datecreated',	$this->get ('date_created'), 5, '') . "\n" : NULL);
 		
 		if (substr ($comment, -1) == "\n")
 		{
@@ -183,12 +189,21 @@ class NewClass extends \Sonic\Model
 		
 		$this->phpdocComment ($comment);
 		$this->addLine ();
+		$this->phpdocComment ($this->generateProperties ());
+		$this->addLine ();
+		
+		// Define namespace
+		
+		$this->lineComment ('Define namespace');
+		$this->addLine ();
+		$this->addLine ('namespace ' . $this->get ('namespace') . ';');
+		$this->addLine ();
 		
 		// Start class
 		
-//		$this->lineComment ('Start ' . $this->get ('name') . ' Class');
-//		$this->addLine ();
-		$this->addLine ('class ' . $this->get ('name') . ' extends \\Sonic\\Model');
+		$this->lineComment ('Start ' . $this->get ('name') . ' Class');
+		$this->addLine ();
+		$this->addLine ('class ' . $this->get ('name') . ' extends ' . $this->get ('extends'));
 		$this->addLine ('{');
 		$this->tabUp ();
 		$this->addLine ();
@@ -225,12 +240,121 @@ class NewClass extends \Sonic\Model
 		
 		$this->phpdocComment ("Class attributes\n@var array");
 		$this->addLine ();
-		$this->addLine ('protected static $attributes = array (');
-		$this->tabUp (FALSE);
+		$this->generateAttributes ();
+		$this->addLine ();
+		
+		// Database connection
+		// Specify if not the default
+		
+		if ($this->get ('table') && $this->get ('database') != $this->db->getDatabaseName ())
+		{
+			
+			// Create new database tool
+
+			$db		= new Db;
+			
+			// Find database resource name from table name
+			
+			$dbName	= array_search ($this->get ('database'), $db->getDatabases ());
+			
+			// Set default class database resource
+			
+			$this->phpdocComment ("Default class resources\n@var array");
+			$this->addLine ();
+			$this->addLine ('protected static $defaultResources	= array (\'db\' => array (\'db\', \'' . $dbName . '\'));');
+			$this->addLine ();
+			
+		}
+		
+		// End class
+		
+		$this->tabDown ();
+		$this->addLine ('}');
+		$this->addLine ();
+		$this->lineComment ('End ' . $this->get ('name') . ' Class');
+		
+		// Return class
+		
+		return $this->class;
+		
+	}
+	
+	
+	
+	/**
+	 * Generate class properties comment
+	 * @return string
+	 */
+	
+	public function generateProperties ()
+	{
+		
+		$attributes	= $this->getAttributes ();
+		
+		$properties	= 'Class Properties:' . "\n";
+		
+		foreach ($attributes as $name => $attribute)
+		{
+			
+			$properties	.= '@property ';
+			
+			switch ($attribute['type'])
+			{
+				
+				case 'self::TYPE_INT':
+					$properties	.= 'integer'; break;
+				
+				case 'self::TYPE_STRING':
+					$properties	.= 'string'; break;
+				
+				case 'self::TYPE_BOOL':
+					$properties	.= 'boolean'; break;
+				
+				case 'self::TYPE_DATE':
+					$properties	.= 'date'; break;
+				
+				case 'self::TYPE_DATETIME':
+					$properties	.= 'datetime'; break;
+				
+				case 'self::TYPE_DECIMAL':
+					$properties	.= 'float'; break;
+				
+				case 'self::TYPE_ENUM':
+					$properties	.= 'enum'; break;
+				
+				case 'self::TYPE_BINARY':
+					$properties	.= 'binary'; break;
+				
+			}
+			
+			$properties	.= ' $' . $name . "\n";
+			
+		}
+		
+		// Remove last ,
+
+		if (substr ($properties, -1) == "\n")
+		{
+			$properties	= substr ($properties, 0, -1);
+		}
+		
+		return $properties;
+		
+	}
+	
+	/**
+	 * Generate class attribute array
+	 */
+	
+	public function generateAttributes ()
+	{
 		
 		// Get attributes and relationships
 		
 		$attributes	= $this->getAttributes ();
+		
+		$this->addLine ('protected static $attributes = array (');
+		$this->tabUp (FALSE);
 		
 		// Add each attribute
 		
@@ -287,18 +411,6 @@ class NewClass extends \Sonic\Model
 		
 		$this->tabDown (FALSE);
 		$this->addLine (');');
-		$this->addLine ();
-		
-		// End class
-		
-		$this->tabDown ();
-		$this->addLine ('}');
-		$this->addLine ();
-		$this->lineComment ('End ' . $this->get ('name') . ' Class');
-		
-		// Return class
-		
-		return $this->class;
 		
 	}
 	
@@ -324,7 +436,7 @@ class NewClass extends \Sonic\Model
 
 		// Get primary key field
 
-		return $db->getPk ($this->get ('table'));
+		return $db->getPk ($this->get ('database'), $this->get ('table'));
 		
 	}
 	
@@ -357,7 +469,7 @@ class NewClass extends \Sonic\Model
 				
 				// For each column
 				
-				foreach ($db->getColumns ($this->get ('table')) as $column)
+				foreach ($db->getColumns ($this->get ('database'), $this->get ('table')) as $column)
 				{
 					
 					// Set attribute
@@ -398,7 +510,7 @@ class NewClass extends \Sonic\Model
 
 		$db	= new Db;
 		
-		$relations	= $db->getRelations ($this->get ('table'));
+		$relations	= $db->getRelations ($this->get ('database'), $this->get ('table'));
 
 		// Loop through constraints
 

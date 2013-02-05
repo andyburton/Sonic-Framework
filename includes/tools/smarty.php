@@ -10,7 +10,7 @@ require_once ('tools.php');
 
 // Require smarty class
 
-require_once ('Smarty_3_1_0/libs/Smarty.class.php');
+require_once (ABS_PARENT . 'smarty-repo/libs/Smarty.class.php');
 
 // Set template resource
 

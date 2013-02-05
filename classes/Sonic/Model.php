@@ -75,6 +75,7 @@ class Model
 	 * 
 	 * Available attribute properties - 
 	 * 
+	 *   name - string, friendly name for the attribute, used in validation. Default to the attribute name.
 	 *   get - boolean, whether the attribute getter is allowed. Default FALSE.
 	 *   set - boolean, whether the attribute setter is allowed. Default FALSE.
 	 *   reset - boolean, whether the attribute resetter is allowed. Default TRUE.
@@ -111,6 +112,7 @@ class Model
 	 *     'relation' => 'Sonic\Model\Group'
 	 *   ),
 	 *   'email' => array (
+	 *     'name'     => 'Email Address',
 	 *     'get'      => TRUE,
 	 *     'set'      => TRUE,
 	 *     'type'     => self::TYPE_STRING,
@@ -142,37 +144,78 @@ class Model
 	protected $attributeValues		= array ();
 	
 	/**
-	* Model resources
-	* @var array
-	*/
+	 * Model resources
+	 * @var array
+	 */
 
 	protected $resources			= array ();
+	
+	/**
+	 * Default class resources
+	 *   e.g array ('db' => array ('db', 'backup'))
+	 * @var array
+	 */
+
+	protected static $defaultResources	= array ();
+	
+	/**
+	 * Model children
+	 * @var array
+	 */
+	
+	public $children				= array ();
 	
 	/**
 	 * Model db resource
 	 * @var PDO
 	 */
 
-	protected $db					= FALSE;
+	public $db						= FALSE;
 
 	/**
-	* Model parser resource
-	* @var Parser
-	*/
+	 * Model parser resource
+	 * @var Parser
+	 */
 
-	protected $parser				= FALSE;
+	public $parser					= FALSE;
+	
+	/**
+	 * Debug mode
+	 * @var boolean 
+	 */
+	
+	public $debug			= FALSE; 
 	
 	
 	/**
 	 * Instantiate class
+	 * @return void
 	 */
 	
 	public function __construct ()
 	{
 		
+		// Set debug mode
+		
+		$this->debug		= defined ('DEBUG')? DEBUG : $this->debug;
+		
 		// Set default resources
 
 		$this->resources	= Sonic::getSelectedResources ();
+		
+		// If there are any class defaults set them
+		
+		foreach (static::$defaultResources as $name => $resource)
+		{
+			
+			$this->resources[$name]	=& Sonic::getResource ($resource);
+			
+			if (!$this->resources[$name])
+			{
+				throw new Exception ('Framework resource `' . print_r ($resource, TRUE) . '` does not exist for ' . get_called_class ());
+			}
+			
+		}
 		
 		// For each resource
 
@@ -187,7 +230,7 @@ class Model
 				// Assign to object variable
 				
 				$this->$name	=& $this->resources[$name];
-
+				
 			}
 
 		}
@@ -249,10 +292,46 @@ class Model
 		$this->__construct ();
 
 	}
-
+	
 	
 	/**
-	 * Return an attribute value
+	 * Pipe any unassigned get request through the attribute getter
+	 * @param string $name Variable name
+	 * @return mixed
+	 */
+	
+	public function __get ($name)
+	{
+		return $this->get ($name);
+	}
+	
+	
+	/**
+	 * Pipe any unassigned set request through the attribute setter
+	 * @param string $name Variable name
+	 * @param mixed $val Variable value
+	 * @return void
+	 */
+	
+	public function __set ($name, $val)
+	{
+		
+		// If the attribute doesn't exists then create new object property	
+	
+		if (!$this->attributeExists ($name))
+		{
+			$this->$name = $val;
+		}
+		else
+		{
+			$this->set ($name, $val);
+		}
+		
+	}
+	
+	
+	/**
+	 * Return an attribute value if allowed by attribute getter
 	 * @param string $name Attribute name
 	 * @throws Exception
 	 * @return mixed
@@ -275,16 +354,16 @@ class Model
 			throw new Exception (get_called_class () . '->' . $name . ' attribute get is disabled!');
 		}
 		
-		// If no attribute value is not set
+		// If no attribute value is set
 		
 		if (!$this->attributeHasValue ($name))
 		{
 			
 			// If there is a default set to value
 			
-			if (isset (static::$attributes[$name]['default']))
+			if (array_key_exists ('default', static::$attributes[$name]))
 			{
-				$this->attributeValues[$name]	= static::$attributes[$name]['default'];
+				$this->iset ($name, static::$attributes[$name]['default'], FALSE);
 			}
 			
 			// Else there is no value and no default
@@ -304,7 +383,7 @@ class Model
 
 	
 	/**
-	 * Set an attribute value
+	 * Set an attribute value if allowed by attribute setter
 	 * @param string $name Attribute name
 	 * @param mixed $val Attribute value
 	 * @param boolean $validate Whether to validate the value
@@ -334,10 +413,108 @@ class Model
 		if ($validate)
 		{
 			
+			// Set friendly name if one exists
+			
+			$friendlyName	= isset (static::$attributes[$name]['name'])? static::$attributes[$name]['name'] : $name;
+			
 			// Validate it using the parser method
 			
-			$this->parser->Validate (static::$attributes[$name], $val);
+			$this->parser->Validate ($friendlyName, static::$attributes[$name], $val);
 			
+		}
+		
+		// Set the attribute value
+		
+		$this->attributeValues[$name]	= $val;
+		
+	}
+
+	
+	/**
+	 * Return an attribute value (internal)
+	 * @param string $name Attribute name
+	 * @throws Exception
+	 * @return mixed
+	 */
+	
+	protected function iget ($name)
+	{
+		
+		// If the attribute doesn't exists
+		
+		if (!$this->attributeExists ($name))
+		{
+			throw new Exception (get_called_class () . '->' . $name . ' attribute does not exist!');
+		}
+		
+		// If no attribute value is set
+		
+		if (!$this->attributeHasValue ($name))
+		{
+			
+			// If there is a default set to value
+			
+			if (array_key_exists ('default', static::$attributes[$name]))
+			{
+				$this->iset ($name, static::$attributes[$name]['default'], FALSE);
+			}
+			
+			// Else there is no value and no default
+			
+			else
+			{
+				throw new Exception (get_called_class () . '->' . $name . ' attribute isn\'t set and has no default value!');
+			}
+			
+		}
+		
+		// Return value
+		
+		return $this->attributeValues[$name];
+			
+	}
+
+	
+	/**
+	 * Set an attribute value (internal)
+	 * @param string $name Attribute name
+	 * @param mixed $val Attribute value
+	 * @param boolean $validate Whether to validate the value
+	 * @param boolean $cast Whether to cast the value to the attribute datatype
+	 * @throws Exception|Parser\Exception
+	 * @return void
+	 */
+	
+	protected function iset ($name, $val, $validate = TRUE, $cast = FALSE)
+	{
+		
+		// If the attribute doesn't exists
+		
+		if (!$this->attributeExists ($name))
+		{
+			throw new Exception (get_called_class () . '->' . $name . ' attribute does not exist!');
+		}
+		
+		// If we're validating the value
+		
+		if ($validate)
+		{
+			
+			// Set friendly name if one exists
+			
+			$friendlyName	= isset (static::$attributes[$name]['name'])? static::$attributes[$name]['name'] : $name;
+			
+			// Validate it using the parser method
+			
+			$this->parser->Validate ($friendlyName, static::$attributes[$name], $val);
+			
+		}
+		
+		// Cast the value
+		
+		if ($cast)
+		{
+			$val	= $this->cast ($name, $val);
 		}
 		
 		// Set the attribute value
@@ -373,7 +550,7 @@ class Model
 		
 		// If there is no default attribute value remove the value
 		
-		if (!isset (static::$attributes[$name]['default']))
+		if (!array_key_exists ('default', static::$attributes[$name]))
 		{
 			unset ($this->attributeValues[$name]);
 		}
@@ -382,8 +559,59 @@ class Model
 		
 		else
 		{
-			$this->attributeValues[$name]	= static::$attributes[$name]['default'];
+			$this->iset ($name, static::$attributes[$name]['default'], FALSE);
 		}
+		
+	}
+	
+	
+	/**
+	 * Cast a value for an attribute datatype 
+	 * @param string $name Attribute name
+	 * @param mixed $val Value to cast
+	 * @return mixed
+	 */
+	
+	public function cast ($name, $val)
+	{
+		
+		// Ignore if value is null
+		
+		if (is_null ($val))
+		{
+			return $val;
+		}
+		
+		// Cast value based upon attribute datatype
+		
+		switch (@static::$attributes[$name]['type'])
+		{
+			
+			case self::TYPE_INT:
+				$val	= (int)$val;
+				break;
+			
+			case self::TYPE_STRING:
+				$val	= (string)$val;
+				break;
+			
+			case self::TYPE_BOOL:
+				$val	= (bool)$val;
+				break;
+			
+			case self::TYPE_DECIMAL:
+				$val	= (float)$val;
+				break;
+			
+			case self::TYPE_BINARY:
+				$val	= (binary)$val;
+				break;
+			
+		}
+		
+		// Return casted value
+		
+		return $val;
 		
 	}
 	
@@ -397,9 +625,139 @@ class Model
 	public function create ($exclude = array ())
 	{
 		
+		// Get columns and values
+		
+		$create	= $this->createColumnsAndValues ($exclude);
+		
+		// Prepare query
+
+		$query	= $this->db->prepare ('
+		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
+		VALUES ( ' . $create['values'] . ')
+		');
+		
+		// Bind attributes
+		
+		$this->bindAttributes ($query, $exclude);
+		
+		// Execute
+		
+		$this->executeCreateUpdateQuery ($query);
+		
+		// Set the pk
+
+		if (!$this->attributeHasValue (static::$pk) || !$this->iget (static::$pk))
+		{
+			$this->iset (static::$pk, $this->db->lastInsertID ());
+		}
+		
+		// Changelog
+		
+		if ($this->changelog ('create'))
+		{
+			$log = $this->getResource ('changelog');
+			$log->hookTransactions ($this->db);
+			$log::_Log ('create', static::_Read ($this->iget (static::$pk)));
+		}
+
+		// return TRUE
+
+		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Create or update an object in the database if it already exists
+	 * @param array $update Values to update
+	 * @param array $exclude Attributes not to set in create
+	 * @return boolean
+	 */
+	
+	public function createOrUpdate ($update, $exclude = array ())
+	{
+		
+		// Get columns and values
+		
+		$create		= $this->createColumnsAndValues ($exclude);
+		
+		// Generate update values
+		
+		$updateVals	= NULL;
+		
+		foreach ($update as $column => $value)
+		{
+			
+			// Add column
+			
+			$updateVals	.= ', `' . $column . '` = ';
+			
+			// If the updated value is an array treat first item
+			// as literal query insert and the second a params to bind
+			
+			$updateVals	.= is_array ($value)? $value[0] : $value;
+			
+		}
+		
+		// Trim the first character (,) from the update
+		
+		$updateVals	= substr ($updateVals, 2);
+		
+		// Prepare query
+
+		$query	= $this->db->prepare ('
+		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
+		VALUES ( ' . $create['values'] . ') 
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(' . static::$pk . '), ' . $updateVals . '
+		');
+		
+		// Bind attributes
+		
+		$this->bindAttributes ($query, $exclude);
+		
+		// Bind update parameters
+		
+		foreach ($update as $value)
+		{
+			if (is_array ($value) && isset ($value[1]) && is_array ($value[1]))
+			{
+				foreach ($value[1] as $column => $newVal)
+				{
+					$query->bindValue ($column, $newVal);
+				}
+			}
+		}
+		
+		// Execute
+		
+		$this->executeCreateUpdateQuery ($query);
+		
+		// Set the pk
+
+		if (!$this->attributeHasValue (static::$pk) || !$this->iget (static::$pk))
+		{
+			$this->iset (static::$pk, $this->db->lastInsertID ());
+		}
+
+		// return TRUE
+
+		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Generate create query columns and values
+	 * @param array $exclude Attribute exclusion array
+	 * @return array ('columns', 'values')
+	 */
+	
+	private function createColumnsAndValues (&$exclude)
+	{
+		
 		// If there is no primary key value exclude it (i.e assume auto increment)
 		
-		if (!isset ($this->attributeValues[static::$pk]))
+		if (!$this->attributeHasValue (static::$pk))
 		{
 			$exclude[]	= static::$pk;
 		}
@@ -421,52 +779,122 @@ class Model
 				continue;
 			}
 			
-			// If there is no attribute value
+			// If the attribute is not set
 			
-			if (!isset ($this->attributeValues[$name]))
+			if (!$this->attributeIsset ($name))
 			{
 				
 				// If there is a default set it
 				
-				if (isset ($attribute['default']))
+				if (array_key_exists ('default', $attribute))
 				{
-					$this->set ($name, $attribute['default']);
+					$this->iset ($name, $attribute['default'], FALSE);
 				}
 				
 				// Else if the attribute can be set to NULL then do so
 				
 				else if (isset ($attribute['null']) && $attribute['null'])
 				{
-					$this->set ($name, NULL);
+					$this->iset ($name, NULL, FALSE);
 				}
 				
 				// Else set a blank value
 				
 				else
 				{
-					$this->set ($name, '');
+					$this->iset ($name, '', FALSE);
 				}
 				
 			}
 			
 			// Add the column and values
 			
-			$columns	.= ',' . $name;
-			$values		.= ',' . is_null ($this->attributeValues[$name])? 'NULL' : ':' . $this->attributeValues[$name];
+			$columns	.= ', `' . $name . '`';
+			$values		.= ', ' . $this->transformValue ($name, $attribute, $exclude);
 			
 		}
 		
 		// Trim the first character (,) from the column and values
 		
-		$columns	= substr ($columns, 1);
-		$values		= substr ($values, 1);
+		$columns	= substr ($columns, 2);
+		$values		= substr ($values, 2);
 		
-		// Prepare query
+		// Return columns and values
+		
+		return array (
+			'columns'	=> $columns,
+			'values'	=> $values
+		);
+		
+	}
+	
+	
+	/**
+	 * Apply any attribute value transformations for SQL query
+	 * @param string $name Attribute name
+	 * @param array $attribute Attribute property array
+	 * @param array $exclude Attribute exclusion array
+	 * @return mixed
+	 */
+	
+	private function transformValue ($name, $attribute, &$exclude)
+	{
+		
+		// If an attribute can accept NULL and it's value is '' then NULL will be set
 
-		$query	= $this->db->prepare ('
-		INSERT INTO ' . static::$dbTable . ' (' . $columns . ')
-		VALUES ( ' . $values . ')
-		');
+		$value	= $this->iget ($name);
+
+		if (is_null ($value) || (isset ($attribute['null']) && $attribute['null'] && $value === ''))
+		{
+			$this->iset ($name, NULL);
+			$value		= 'NULL';
+			$exclude[]	= $name;
+		}
+		else
+		{
+			
+			// Switch special values
+			
+			switch ((string)$value)
+			{
+
+				case "CURRENT_TIMESTAMP":
+
+					$value		= 'CURRENT_TIMESTAMP';
+					$exclude[]	= $name;
+					break;
+
+				case 'CURRENT_UTC_DATE':
+
+					$value		= "'" . $this->parser->utcDate () . "'";
+					$exclude[]	= $name;
+					break;
+
+				default:
+
+					$value	= ':' . $name;
+					break;
+
+			}
+
+		}
+		
+		// Return transformed value
+		
+		return $value;
+		
+	}
+	
+	
+	/**
+	 * Bind object attribute values to the query
+	 * @param \PDOStatement $query Query object to bind values to
+	 * @param array $exclude Attributes to exclude
+	 * @return void
+	 */
+	
+	private function bindAttributes (&$query, $exclude = array ())
+	{
 		
 		// Loop through attributes
 		
@@ -481,22 +909,69 @@ class Model
 			}
 			
 			// Bind paramater
-
-			$query->bindValue (':' . $name, $this->attributeValues[$name]);
+			
+			$query->bindValue (':' . $name, $this->iget ($name));
 			
 		}
 		
+	}
+	
+	
+	/**
+	 * Execute create or update query and cope with an exception
+	 * @param \PDOStatement $query Query object to bind values to
+	 * @return void
+	 * @throws PDOException 
+	 */
+	
+	private function executeCreateUpdateQuery (&$query)
+	{
+		
 		// Execute
 
-		$query->execute ();
+		try
+		{
+			$query->execute ();
+		}
+		catch (\PDOException $e)
+		{
+			
+			// Catch some errors
+			
+			switch ($e->getCode ())
+			{
+				
+				// Duplicate Key
+				
+				case 23000:
+				
+					// Get attribute name and set error
 
-		// Set the pk
+					if (preg_match ('/Duplicate entry \'(.*?)\' for key \'(.*?)\'/', $e->getMessage (), $match))
+					{
+						$name	= $this->attributeExists ($match[2]) && isset (static::$attributes[$match[2]]['name'])? static::$attributes[$match[2]]['name'] : $match[2];
+						new Message ('error',  'Please choose another ' . ucwords ($name) . ', `' . $match[1] . '` already exists!');
+						return FALSE;
+					}
 
-		$this->set (static::$pk, $this->db->lastInsertID ());
+					// Else unrecognised message so throw the error again
 
-		// return TRUE
-
-		return TRUE;
+					else
+					{
+						throw $e;
+					}
+					
+					break;
+					
+					
+				// Throw error by default
+					
+				default:
+					throw $e;
+				
+			}
+			
+		}
 		
 	}
 	
@@ -510,67 +985,106 @@ class Model
 	public function read ($pkValue = FALSE)
 	{
 		
-		// If there is a key value passed set it
-		
-		if ($pkValue !== FALSE)
+		try
 		{
-			$this->set (static::$pk, $pkValue);
-		}
-		
-		// Prepare query
 
-		$query = $this->db->prepare ('
-		SELECT * FROM ' . static::$dbTable . '
-		WHERE ' . static::$pk . ' = :pk
-		');
+			// If there is a key value passed set it
 
-		// Bind paramater
-
-		$query->bindValue (':pk',	$this->get (static::$pk));
-		
-		// Execute
-		
-		$query->execute ();
-
-		// Set row
-
-		$row	= $query->fetch (\PDO::FETCH_ASSOC);
-
-		// If no data was returned return FALSE
-
-		if ($row === FALSE)
-		{
-			return FALSE;
-		}
-
-		// Set each attribute value
-
-		foreach ($row as $name => $val)
-		{
-			
-			if ($this->attributeExists ($name))
+			if ($pkValue !== FALSE)
 			{
-				$this->attributeValues[$name]	= $val;
+				$this->iset (static::$pk, $pkValue);
+			}
+
+			// Prepare query
+
+			$query = $this->db->prepare ('
+			SELECT * FROM ' . static::$dbTable . '
+			WHERE ' . static::$pk . ' = :pk
+			');
+
+			// Bind paramater
+
+			$query->bindValue (':pk',	$this->iget (static::$pk));
+
+			// Execute
+
+			$query->execute ();
+
+			// Set row
+
+			$row	= $query->fetch (\PDO::FETCH_ASSOC);
+
+			// If no data was returned return FALSE
+
+			if (!$row)
+			{
+				return FALSE;
+			}
+
+			// Set each attribute value
+
+			foreach ($row as $name => $val)
+			{
+
+				if ($this->attributeExists ($name))
+				{
+					$this->iset ($name, $val, FALSE, TRUE);
+				}
+
 			}
 			
 		}
 		
-		// Return TRUE
+		// Set errors as framework messages
+
+		catch (Resource\Parser\Exception $e)
+		{
+			new Message ('error', $e->getMessage ());
+			return FALSE;
+		}
 		
+		// Return TRUE
+
 		return TRUE;
 		
 	}
 	
 	
 	/**
+	 * Read and set a single object attribute from the database
+	 * @param string $name Attribute name
+	 * @return void
+	 */
+	
+	public function readAttribute ($name)
+	{
+		
+		$this->iset ($name, $this->getValue (array (
+			'select'	=> $name,
+			'where'		=> array (array (static::$pk, $this->iget (static::$pk)))
+		)));
+		
+	}
+	
+	
+	/**
 	 * Update an object in the database
-	 * @param array $xclude Attributes not to update
+	 * @param array $exclude Attributes not to update
 	 * @return boolean
 	 */
 	
 	public function update ($exclude = array ())
 	{
 
+		// Changelog
+		
+		$old = FALSE;
+		
+		if ($this->changelog ('update'))
+		{
+			$old = static::_Read ($this->get (static::$pk));
+		}
+		
 		// Exclude the primary key
 		
 		$exclude[]	= static::$pk;
@@ -581,7 +1095,7 @@ class Model
 		
 		// Loop through attributes
 		
-		foreach (array_keys ($this->attributes) as $name)
+		foreach (static::$attributes as $name => $attribute)
 		{
 			
 			// If we're excluding the attribute then move on
@@ -591,9 +1105,9 @@ class Model
 				continue;
 			}
 			
-			// If there is no attribute value
+			// If the attribute is not set
 			
-			if (!isset ($this->attributeValues[$name]))
+			if (!$this->attributeIsset ($name))
 			{
 				
 				// Exclude it and move on
@@ -605,7 +1119,7 @@ class Model
 			
 			// Add the value
 			
-			$values	.= ',' . $name . ' = ' . is_null ($this->attributeValues[$name])? 'NULL' : ':' . $this->attributeValues[$name];
+			$values	.= ',`' . $name . '` = ' . $this->transformValue ($name, $attribute, $exclude);
 			
 		}
 		
@@ -621,31 +1135,26 @@ class Model
 		WHERE ' . static::$pk . ' = :pk
 		');
 		
-		// Loop through attributes
+		// Bind attributes
 		
-		foreach (array_keys (static::$attributes) as $name)
-		{
-			
-			// If we're excluding the attribute then move on
-			
-			if (in_array ($name, $exclude))
-			{
-				continue;
-			}
-			
-			// Bind paramater
-
-			$query->bindValue (':' . $name, $this->attributeValues[$name]);
-			
-		}
+		$this->bindAttributes ($query, $exclude);
 		
 		// Bind pk
 		
-		$query->bindValue (':pk', $this->get (static::$pk));
+		$query->bindValue (':pk', $this->iget (static::$pk));
 		
 		// Execute
-
-		$query->execute ();
+		
+		$this->executeCreateUpdateQuery ($query);
+		
+		// Changelog
+		
+		if ($old)
+		{
+			$log	= $this->getResource ('changelog');
+			$log->hookTransactions ($this->db);
+			$log::_Log ('update', $old, $this);
+		}
 
 		// return TRUE
 
@@ -655,39 +1164,217 @@ class Model
 	
 	
 	/**
-	 * Delete an object in the database
-	 * @param mixed $pkValue Primary key value
+	 * Set and update a single object attribute in the database
+	 * @param string $name Attribute name
+	 * @param string $value Attribute value
 	 * @return boolean
 	 */
 	
-	public function delete ($pkValue = FALSE)
+	protected function updateAttribute ($name, $value)
 	{
 		
-		// If there is no key value passed set it
+		// Changelog
 		
-		if ($pkValue === FALSE)
+		$old = FALSE;
+		
+		if ($this->changelog ('update'))
 		{
-			$pkValue	= $this->get (static::$pk);
+			$old = static::_Read ($this->iget (static::$pk));
+		}
+		
+		$this->iset ($name, $value);
+		
+		// Prepare query
+		
+		$query = $this->db->prepare ('
+		UPDATE ' . static::$dbTable . '
+		SET ' . $name . ' = :val 
+		WHERE ' . static::$pk . ' = :pk
+		');
+		
+		// Bind values
+		
+		$query->bindValue (':val',	$this->iget ($name));
+		$query->bindValue (':pk',	$this->iget (static::$pk));
+		
+		// Execute
+
+		if (!$query->execute ())
+		{
+			return FALSE;
+		}
+		
+		// Changelog
+		
+		if ($old)
+		{
+			
+			// Only update attribute thats changed
+			
+			$exclude = $this->toArray ();
+			unset ($exclude[$name]);
+			
+			$log = $this->getResource ('changelog');
+			$log->hookTransactions ($this->db);
+			$log::_Log ('update', $old, $this, array_keys ($exclude));
+			
+		}
+		
+		// Return TRUE
+		
+		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Set and update a single object attribute in the database
+	 * @param string $name Attribute name
+	 * @param string $value Attribute value
+	 * @return boolean
+	 */
+	
+	public static function _setValue ($pk, $name, $value)
+	{
+		
+		// Get database
+		
+		$db	= self::_getResource ('db');
+		
+		if (!($db instanceof \PDO))
+		{
+			throw new Exception ('Invalid or no database resource set');
+		}
+		
+		// Prepare query
+		
+		$query = $db->prepare ('
+		UPDATE ' . static::$dbTable . '
+		SET ' . $name . ' = :val 
+		WHERE ' . static::$pk . ' = :pk
+		');
+		
+		// Bind values
+		
+		$query->bindValue (':val',	$value);
+		$query->bindValue (':pk',	$pk);
+		
+		// Execute
+
+		return $query->execute ();
+		
+	}
+	
+	
+	/**
+	 * Delete an object in the database
+	 * @param array|integer $params Primary key value or parameter array
+	 * @return boolean
+	 */
+	
+	public function delete ($params = FALSE)
+	{
+		
+		// If there is no key value passed set to the object id
+		
+		if ($params === FALSE)
+		{
+			$params	= array (
+				'where' => array (
+					array (static::$pk, $this->iget (static::$pk))
+				)
+			);
+		}
+		
+		// If the params are not an array assume the variable
+		// is an object pk, and set the parameter array
+		
+		if (!is_array ($params))
+		{
+			$params	= array (
+				'where' => array (
+					array (static::$pk, $params)
+				)
+			);
+		}
+		
+		// If there is no where clause
+		
+		if (!isset ($params['where']))
+		{
+			throw new Exception ('No where clause for ' . get_called_class () . '->delete');
+		}
+		
+		// Changelog
+		
+		$arrRemove	= FALSE;
+		
+		if ($this->changelog ('delete'))
+		{
+			
+			// Get all objects being removed
+			
+			$arrRemove	= static::_getObjects (array ('where' => $params['where']));
+			
 		}
 		
 		// Prepare query
 
 		$query = $this->db->prepare ('
-		DELETE FROM ' . static::$dbTable . '
-		WHERE ' . static::$pk . ' = :pk
+		DELETE FROM ' . static::$dbTable . ' 
+		' . $this->db->genClause ('WHERE', $this->db->genWHERE ($params['where'])) . '
 		');
 		
-		// Bind pk
+		// Bind values
 		
-		$query->bindValue (':pk', $pkValue);
+		$this->db->genBindValues ($query, $params['where']);
 		
 		// Execute
 
 		$query->execute ();
+		
+		// Changelog
+		
+		if ($arrRemove)
+		{
+			
+			$log = $this->getResource ('changelog');
+			$log->hookTransactions ($this->db);
+			
+			// Log all removed entries
+			
+			foreach ($arrRemove as $obj)
+			{
+				$log::_Log ('delete', $obj);
+			}
+			
+		}
 
 		// return TRUE
 
 		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Hook any database queries into another database transaction
+	 * so that the queries are commited and rolled back at the same point
+	 * @param \Sonic\Resource\Db $db Database to hook onto
+	 */
+	
+	public function hookTransactions (\Sonic\Resource\Db &$db)
+	{
+		
+		/**
+		 * We only want to create the hook and begin a transaction on the database
+		 * if a transaction has already begun on the database we're hooking onto.
+		 */
+		
+		if ($db->getTransactionCount () > 0 && $db->addTransactionHook ($this->db))
+		{
+			$this->db->beginTransaction ();
+		}
 		
 	}
 	
@@ -764,10 +1451,19 @@ class Model
 	/**
 	 * Return an array with object attributes
 	 * @param array|boolean $attributes Attributes to include, default to false i.e all attributes
+	 * @param array $relations Array of related object attributes or tranformed method attributes to return
+	 *   e.g. related value - 'key' => array ('\Sonic\Model\User\Group', 'name')
+	 *   e.g. related object - 'key' => array ('related', '\Sonic\Model\User\Group', array (toArray params))
+	 *   e.g. related children - 'key' => array ('children', '\Sonic\Model\User\Group', array (toArray params))
+	 *   e.g. object tranformed value - 'key' => array ('$this', 'getStringValue', array (args))
+	 *   e.g. class tranformed value - 'key' => array ('self', '_getStringValue', array (args))
+	 *   e.g. static tranformed value - 'key' => array ('static', '_getStringValue', array (args))
+	 *   e.g. parent tranformed value - 'key' => array ('parent', '_getStringValue', array (args))
+	 * @param integer $recursive Output array recursively, so any $this->children also get output
 	 * @return object|boolean
 	 */
 	
-	public function toArray ($attributes = FALSE)
+	public function toArray ($attributes = FALSE, $relations = array (), $recursive = FALSE)
 	{
 		
 		// If no attributes are set to display, get all object attributes with get allowed
@@ -788,6 +1484,7 @@ class Model
 			}
 			
 		}
+		
 		// Set array
 		
 		$arr	= array ();
@@ -808,6 +1505,101 @@ class Model
 			
 		}
 		
+		// Get any related attributes
+		
+		if ($relations)
+		{
+			
+			foreach ($relations as $name => $relation)
+			{
+				
+				// Remove first \ from class
+
+				if ($relation[0][0] == '\\')
+				{
+					$relation[0]	= substr ($relation[0], 1);
+				}
+				
+				// If the first value exists as a class name
+				// Get object and attribute value
+				
+				if (class_exists ($relation[0]))
+				{
+					$obj		= $this->getRelated ($relation[0]);
+					$arr[$name]	= $obj? $obj->get ($relation[1]) : '';
+				}
+				
+				// Else switch first item of relation array
+				
+				else
+				{
+
+					switch ($relation[0])
+					{
+
+						// Object method
+
+						case '$this':
+
+							$args		= isset ($relation[2])? $relation[2] : array ();
+							$arr[$name]	= call_user_func_array (array ($this, $relation[1]), $args);
+
+							break;
+
+						// Related object
+
+						case 'related':
+
+							$args		= isset ($relation[2])? $relation[2] : FALSE;
+							$obj		= $this->getRelated ($relation[1]);
+							$arr[$name]	= $obj? $obj->toArray ($args) : '';
+
+							break;
+
+						// Child objects
+
+						case 'children':
+
+							$args		= isset ($relation[2])? $relation[2] : FALSE;
+							$obj		= $this->getChildren ($relation[1]);
+							$arr[$name]	= $obj? $obj->toArray ($args) : '';
+
+							break;
+
+						// Anything else
+						// Pass directly to call_user_func_array
+
+						default:
+
+							$args		= isset ($relation[2])? $relation[2] : array ();
+							$arr[$name]	= call_user_func_array (array ($relation[0], $relation[1]), $args);
+
+							break;
+
+					}
+					
+				}
+				
+			}
+			
+		}
+		
+		// Output recursively
+		
+		if ($recursive)
+		{
+			
+			if (isset ($this->children))
+			{
+				$arr['children']	= $this->children->toArray ($attributes, $relations, $recursive);
+			}
+			else
+			{
+				$arr['children']	= array ();
+			}
+			
+		}
+		
 		// Return array
 		
 		return $arr;
@@ -819,55 +1611,130 @@ class Model
 	 * Populate object attributes from a post array
 	 * Attribute names need to be in the format ClassName_AttributeName in $_POST
 	 * @param boolean $validate Validate attributes during set
+	 * @param array $required Required attributes
 	 * @return void
 	 */
 	
-	public function fromPost ($validate = TRUE)
+	public function fromPost ($validate = TRUE, $required = array ())
 	{
 		
-		// Set attributes to set
+		// Set attributes
 		
-		$arr	= array ();
-		
-		// Get class name
-		
-		$class	= explode ('\\', get_called_class ());
-		$class	= strtolower ($class[count ($class) -1]);
-		
-		// Loop through class attributes and add any that exist in post
-		
-		foreach (array_keys (static::$attributes) as $name)
-		{
-			
-			if (isset ($_POST[$class . '_' . strtolower ($name)]))
-			{
-				$arr[$name]	= $_POST[$class . '_' . $name];
-			}
-			
-		}
-		
-		// Add attributes
-		
-		$this->fromArray ($arr, $validate);
+		$this->fromArray ($_POST, TRUE, $validate, $required);
 		
 	}
 	
 	
 	/**
 	 * Populate object attributes from an array
-	 * @param array $attributes Attributes
+	 * @param array $attributes Attributes array
+	 * @param boolean $removeClass Remove class prefix from the attribute name
 	 * @param boolean $validate Validate attributes during set
+	 * @param array $required Required attributes
+	 * @param array $valid Valid attributes to set
 	 * @return void
 	 */
 	
-	public function fromArray ($attributes, $validate = TRUE)
+	public function fromArray ($attributes, $removeClass = FALSE, $validate = TRUE, $required = array (), $valid = array ())
 	{
-
-		// Set each attribute
-
-		foreach ($attributes as $name => $val)
+		
+		// Remove class prefix
+		
+		if ($removeClass)
 		{
-			$this->set ($name, $val, $validate);
+			
+			// Set attributes to set
+
+			$arr	= array ();
+
+			// Get class name
+
+			$class	= strtolower ($this->getClass ());
+
+			// Loop through attributes and add any that exist with the class name
+
+			foreach (array_keys (static::$attributes) as $name)
+			{
+
+				if (isset ($attributes[$class . '_' . strtolower ($name)]))
+				{
+					$arr[$name]	= $attributes[$class . '_' . $name];
+				}
+
+			}
+			
+			// Set attributes
+			
+			$attributes	= $arr;
+			
+		}
+		
+		// If we have an array of valid attributes to set
+		// Remove any that isn't valid
+		
+		if ($valid)
+		{
+			
+			foreach (array_keys ($attributes) as $name)
+			{
+				
+				if (!in_array ($name, $valid, TRUE))
+				{
+					unset ($attributes[$name]);
+				}
+				
+			}
+			
+		}
+		
+		// Set each attribute
+		
+		try
+		{
+
+			foreach ($attributes as $name => $val)
+			{
+				
+				if ($this->attributeExists ($name) && $this->attributeSet ($name))
+				{
+					$this->set ($name, $val, $validate);
+				}
+				
+				if (($key = array_search ($name, $required, TRUE)) !== FALSE)
+				{
+					unset ($required[$key]);
+				}
+				
+			}
+			
+			// Error if there are required fields that have not been set
+			
+			if (count ($required) > 0)
+			{
+				
+				foreach ($required as $name)
+				{
+					
+					if ($this->attributeExists ($name) && isset (static::$attributes[$name]['name']))
+					{
+						$name	= static::$attributes[$name]['name'];
+					}
+					
+					$word	= in_array (strtoupper ($name[0]), array ('A', 'E', 'I', 'O'))? 'an' : 'a';
+					
+					new Message ('error', 'You have not entered ' . $word . ' `' . $name . '`.');
+					
+				}
+				
+			}
+			
+		}
+		
+		// Set errors as framework messages
+		
+		catch (Resource\Parser\Exception $e)
+		{
+			new Message ('error', $e->getMessage ());
 		}
 		
 	}
@@ -891,7 +1758,7 @@ class Model
 		
 		// Get the tree paths to the required class
 		
-		$paths	= static::_getRelationPaths ($class, $fork);
+		$paths	= self::_getRelationPaths ($class, $fork);
 		
 		// If there are no paths return FALSE
 		
@@ -902,11 +1769,35 @@ class Model
 		
 		// Get the shortest path to the required class
 		
-		$path	= static::_getShortestPath ($paths);
+		$path	= self::_getShortestPath ($paths);
 		
 		// Return the related object
 		
-		return static::_getRelation ($this, $path);
+		return self::_getRelation ($this, $path);
+		
+	}
+	
+	
+	/**
+	 * Return child objects matching class type
+	 * @param string $class Child class type
+	 * @param boolean $recursive Whether to load childrens children.
+	 *   This will create an object attribute called 'children' on all objects
+	 * @param boolean $index Return indexed child array rather than object array
+	 * @return array|boolean 
+	 */
+	
+	public function getChildren ($class, $recursive = FALSE, $index = FALSE)
+	{
+		
+		$children	= self::_getChildren ($class, $this->iget (self::$pk), $recursive);
+		
+		if ($index)
+		{
+			$children	= static::_getChildrenIndex ($children);
+		}
+		
+		return $children;
 		
 	}
 	
@@ -981,13 +1872,43 @@ class Model
 	
 	
 	/**
-	 * Set a class resource
+	 * Set an internal resource from a framework resource
+	 * @param string $name Resource name
+	 * @param string|array $resource Framework resource referece
+	 * @return boolean
+	 */
+	
+	public function setResource ($name, $resource)
+	{
+		
+		// Get the resource
+		
+		$obj	= Sonic::getResource ($resource);
+		
+		if (!$obj)
+		{
+			return FALSE;
+		}
+		
+		// Set resource object
+		
+		$this->setResourceObj ($name, $obj);
+		
+		// Return
+		
+		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Set a class resource from the resource object
 	 * @param string $name Resource name
 	 * @param object $resource Resource object
 	 * @return void
 	 */
 	
-	public function setResource ($name, $resource)
+	public function setResourceObj ($name, $resource)
 	{
 		
 		// Set the resource
@@ -1004,6 +1925,51 @@ class Model
 			$this->$name	=& $this->resources[$name];
 
 		}
+		
+	}
+	
+	
+	/**
+	 * Remove a class resource
+	 * @param string $name Resource name
+	 * @return void
+	 */
+	
+	public function removeResource ($name)
+	{
+		
+		if (isset ($this->resources[$name]))
+		{
+			
+			unset ($this->resources[$name]);
+			
+			if (isset ($this->$name))
+			{
+				unset ($this->$name);
+			}
+				
+		}
+		
+	}
+	
+	
+	/**
+	 * Remove all class resources
+	 * @return void
+	 */
+	
+	public function removeResources ()
+	{
+
+		foreach (array_keys ($this->resources) as $name)
+		{
+			if (isset ($this->$name))
+			{
+				unset ($this->$name);
+			}
+		}
+
+		unset ($this->resources);
 		
 	}
 	
@@ -1057,7 +2023,7 @@ class Model
 	
 	
 	/**
-	 * Return whether an attribute has a value or not
+	 * Return whether an attribute has a value or not (NULL value returns FALSE)
 	 * @param string $name Attribute name
 	 * @return boolean
 	 */
@@ -1069,10 +2035,114 @@ class Model
 	
 	
 	/**
+	 * Return whether an attribute value is set or not (NULL value returns TRUE)
+	 * @param string $name Attribute name
+	 * @return boolean
+	 */
+	
+	public function attributeIsset ($name)
+	{
+		return array_key_exists ($name, $this->attributeValues);
+	}
+	
+	
+	/**
+	 * Return an attribute parameters array or FALSE if it doesnt exist
+	 * Also pass option property array to return a single attribute property
+	 * @param string $name Attribute name
+	 * @param string $property Attribute property
+	 * @return boolean
+	 */
+	
+	public static function _attributeProperties ($name, $property = FALSE)
+	{
+		
+		// If the attribute exists
+		
+		if (isset (static::$attributes[$name]))
+		{
+			
+			// If a property is specified
+			
+			if ($property)
+			{
+				
+				// If the property doesnt exist
+				
+				if (!isset (static::$attributes[$name][$property]))
+				{
+					return FALSE;
+				}
+				
+				// Return property
+				
+				return static::$attributes[$name][$property];
+				
+			}
+			
+			// Return attribute
+			
+			return static::$attributes[$name];
+			
+		}
+		
+		// Return FALSE
+		
+		return FALSE;
+		
+	}
+	
+	/**
+	 * Return the object class namespace
+	 * @return string
+	 */
+	
+	public function getNamespace ()
+	{
+		return self::_getNamespace ();
+	}
+	
+	
+	/**
+	 * Return the static class namespace
+	 * @return string
+	 */
+	
+	public static function _getNamespace ()
+	{
+		$arr	= \Sonic\Resource\Parser::_getNamespaceAndClass (get_called_class ());
+		return $arr[0];
+	}
+	
+	
+	/**
+	 * Return the object class name
+	 * @return string
+	 */
+	
+	public function getClass ()
+	{
+		return self::_getClass ();
+	}
+	
+	
+	/**
+	 * Return the static class name
+	 * @return string
+	 */
+	
+	public static function _getClass ()
+	{
+		$arr	= \Sonic\Resource\Parser::_getNamespaceAndClass (get_called_class ());
+		return $arr[1];
+	}
+	
+	
+	/**
 	 * Create a new object instance and read it from the database, populating the object attributes
 	 * @param mixed $params Object to read.
 	 *   This can be an instance ID or a parameter array.
-	 * @return boolean|object
+	 * @return \Sonic\Model
 	 */
 	
 	public static function _read ($params)
@@ -1097,7 +2167,7 @@ class Model
 
 			// If no data was returned return FALSE
 
-			if ($row === FALSE)
+			if (!$row)
 			{
 				return FALSE;
 			}
@@ -1109,7 +2179,7 @@ class Model
 
 				if ($obj->attributeExists ($name))
 				{
-					$obj->attributeValues[$name]	= $val;
+					$obj->iset ($name, $val);
 				}
 
 			}
@@ -1139,11 +2209,11 @@ class Model
 	
 	/**
 	 * Delete an object in the database
-	 * @param mixed $pkValue Primary key value
+	 * @param array|integer $params Primary key value or parameter array
 	 * @return boolean
 	 */
 	
-	public static function _delete ($pkValue)
+	public static function _delete ($params)
 	{
 		
 		// Create object
@@ -1152,7 +2222,7 @@ class Model
 		
 		// Delete
 		
-		return $obj->delete ($pkValue);
+		return $obj->delete ($params);
 		
 	}
 	
@@ -1185,6 +2255,56 @@ class Model
 	
 	
 	/**
+	 * Check to see whether the object matching the parameters exists
+	 * @param array $params Parameter array
+	 * @return boolean
+	 */
+	
+	public static function _exists ($params)
+	{
+		return self::_count ($params) > 0;
+	}
+	
+	
+	/**
+	 * Check to see whether an object with the match ID exists
+	 * @param integer $id Primary key
+	 * @return boolean
+	 */
+	
+	public static function _IDexists ($id)
+	{
+		
+		return self::_exists (array (
+			'where'	=> array (
+				array (static::$pk, $id)
+			)
+		));
+		
+	}
+	
+	
+	/**
+	 * Return a random row
+	 * @param array $params Parameter Array
+	 * @param boolean|\Sonic\Model
+	 */
+	
+	public static function _random ($params = array ())
+	{
+		
+		// Set random parameter
+		
+		$params['orderby']	= 'RAND()';
+		
+		// Return random row
+		
+		return self::_Read ($params);
+		
+	}
+	
+	
+	/**
 	 * Return a single row
 	 * @param array $params Parameter array
 	 * @param int $fetchMode PDO fetch mode, default to assoc
@@ -1194,16 +2314,23 @@ class Model
 	public static function _getValue ($params, $fetchMode = \PDO::FETCH_ASSOC)
 	{
 		
-		// Set table
+		// Set select
+
+		if (!isset ($params['select']))
+		{
+			$params['select']	= '*';
+		}
+		
+		// Set from
 
 		if (!isset ($params['from']))
 		{
-			$params['from']	= static::$dbTable;
+			$params['from']		= static::$dbTable;
 		}
 		
 		// Get database
 		
-		$db	= Sonic::getSelectedResource ('db');
+		$db	= self::_getResource ('db');
 		
 		if (!($db instanceof \PDO))
 		{
@@ -1223,19 +2350,26 @@ class Model
 	 * @return mixed
 	 */
 	
-	public static function _getValues ($params)
+	public static function _getValues ($params = array ())
 	{
 		
-		// Set table
+		// Set select
+
+		if (!isset ($params['select']))
+		{
+			$params['select']	= '*';
+		}
+		
+		// Set from
 
 		if (!isset ($params['from']))
 		{
-			$params['from']	= static::$dbTable;
+			$params['from']		= static::$dbTable;
 		}
 		
 		// Get database
 		
-		$db	= Sonic::getSelectedResource ('db');
+		$db	= self::_getResource ('db');
 		
 		if (!($db instanceof \PDO))
 		{
@@ -1252,16 +2386,16 @@ class Model
 	/**
 	 * Create and return an array of objects for query parameters
 	 * @param array $params Parameter array
-	 * @param boolean $usePk Whether to use the primary key as the array index, default to false
+	 * @param string $key Attribute value to use as the array index, default to 0-indexed
 	 * @return array
 	 */
 	
-	public static function _getObjects ($params, $usePk = FALSE)
+	public static function _getObjects ($params = array (), $key = FALSE)
 	{
 		
 		// Set object array
 		
-		$arr	= array ();
+		$arr	=  new Resource\Model\Collection ();
 		
 		// Select all attributes if none are set
 		
@@ -1297,16 +2431,16 @@ class Model
 
 				if ($obj->attributeExists ($name))
 				{
-					$obj->attributeValues[$name]	= $val;
+					$obj->iset ($name, $val, FALSE, TRUE);
 				}
 
 			}
 			
 			// Add to the array
 			
-			if ($usePk)
+			if ($key)
 			{
-				$arr[$obj->get (static::$pk)]	= $obj;
+				$arr[$obj->iget ($key)]	= $obj;
 			}
 			else
 			{
@@ -1319,6 +2453,45 @@ class Model
 		
 		return $arr;
 		
+	}
+	
+	
+	/**
+	 * Generate the SQL for a query on the model
+	 * @param array $params Parameter array
+	 * @return string
+	 */
+	
+	public static function _genSQL ($params = array ())
+	{
+		
+		// Set select
+
+		if (!isset ($params['select']))
+		{
+			$params['select']	= '*';
+		}
+		
+		// Set from
+
+		if (!isset ($params['from']))
+		{
+			$params['from']		= static::$dbTable;
+		}
+		
+		// Get database
+		
+		$db	= self::_getResource ('db');
+		
+		if (!($db instanceof \PDO))
+		{
+			throw new Exception ('Invalid or no database resource set');
+		}
+		
+		// Return value
+
+		return $db->genSQL ($params);
+
 	}
 	
 	
@@ -1513,11 +2686,22 @@ class Model
 	public static function _getRelationPaths ($endClass, $fork = array (), $paths = array (), $processed = array (), $depth = 0)
 	{
 		
+		// Remove first \ from end class
+		
+		if ($endClass[0] == '\\')
+		{
+			$endClass	= substr ($endClass, 1);
+		}
+		
+		// Set variables
+		
 		$class			= get_called_class ();
 		$processed[]	= $class;
 		$parent			= $paths;
 		
 		$depth++;
+		
+		// Find paths
 		
 		foreach (static::$attributes as $name => $attribute)
 		{
@@ -1597,7 +2781,7 @@ class Model
 	 * Return a related object for a given object and path
 	 * @param Model $obj Starting object
 	 * @param array $path Path to the end object
-	 * @return Model
+	 * @return \Sonic\Model|boolean
 	 */
 	
 	public static function _getRelation ($obj, $path)
@@ -1605,12 +2789,234 @@ class Model
 		
 		foreach ($path as $class => $name)
 		{
+			
 			$class		= get_class ($obj);
 			$childClass	= $class::$attributes[$name]['relation'];
-			$obj		= $childClass::_read ($obj->attributeValues[$name]);
+			
+			if ($obj->iget ($name))
+			{
+				$obj	= $childClass::_read ($obj->iget ($name));
+			}
+			else
+			{
+				return FALSE;
+			}
+			
 		}
 		
 		return $obj;
+		
+	}
+	
+	
+	/**
+	 * Return child objects with an attribute matching the current class and specified ID
+	 * @param string $class Child class
+	 * @param integer $id Parent ID
+	 * @param boolean $recursive Whether to load childrens children.
+	 *   This will create an object attribute called 'children' on all objects
+	 * @return array|boolean
+	 */
+	
+	public static function _getChildren ($class, $id, $recursive = FALSE)
+	{
+		
+		// Remove first \ from class
+		
+		if ($class[0] == '\\')
+		{
+			$class	= substr ($class, 1);
+		}
+		
+		// Get current (parent) class
+		
+		$parent	= get_called_class ();
+		
+		// Find the child variable pointing to the parent
+		
+		$var	= FALSE;
+		
+		foreach ($class::$attributes as $name => $attribute)
+		{
+			
+			if (isset ($attribute['relation']) &&
+				class_exists ($attribute['relation']) && 
+				$attribute['relation'] == $parent)
+			{
+				$var = $name;
+				break;
+			}
+			
+		}
+		
+		// If no argument
+		
+		if ($var === FALSE)
+		{
+			return array ();
+		}
+		
+		// Get children
+		
+		if (is_null ($id))
+		{
+			$params	= array (
+				'where'	=> array (
+					array ($var, 'NULL', 'IS')
+				)
+			);
+		}
+		else
+		{
+			$params	= array (
+				'where'	=> array (
+					array ($var, $id)
+				)
+			);
+		}
+		
+		$children	= $class::_getObjects ($params);
+		
+		// Get recursively
+		
+		if ($recursive)
+		{
+			
+			foreach ($children as &$child)
+			{
+				$child->children	= $child->getChildren ($class, $recursive);
+			}
+			
+		}
+		
+		// Return children
+		
+		return $children;
+		
+	}
+	
+	
+	/**
+	 * Return an array of child ids from an array of children returned from self::_getChildren
+	 * @param array $arr Array of children
+	 * @return array
+	 */
+	
+	public static function _getChildrenIndex ($arr)
+	{
+		
+		$return	= array ();
+
+		foreach ($arr as $child)
+		{
+			$return[] = $child->get ('id');
+			$return = array_merge ($return, self::_getChildrenIndex ($child->children));
+		}
+
+		return $return;
+		
+	}
+	
+	
+	/**
+	 * Return an array of items with total result count
+	 * @param array $params Array of query parameters - MUST BE ESCAPED!
+	 * @param array $relations Array of related object attributes or tranformed method attributes to return
+	 *   e.g. related value - 'query_name' => array ('\Sonic\Model\User\Group', 'name')
+	 *   e.g. tranformed value - 'permission_value' => array ('$this', 'getStringValue')
+	 * @return array|boolean
+	 */
+
+	public static function _getGrid ($params = array (), $relations = array ())
+	{
+		
+		// If no limit has been set
+
+		if (!$params || !isset ($params['limit']))
+		{
+
+			// Set default query limit
+			
+			$params['limit'] = array (0, 50);
+
+		}
+		
+		// Get data
+		
+		if ($relations)
+		{
+			
+			$objs	= static::_getObjects ($params);
+			$data	= array ();
+			
+			foreach ($objs as $obj)
+			{
+				
+				$attributes	= is_array ($params['select'])? $params['select'] : explode (',', $params['select']);
+				
+				foreach ($attributes as &$val)
+				{
+					$val = trim ($val);
+				}
+				
+				$data[] = $obj->toArray ($attributes, $relations);
+				
+			}
+			
+		}
+		else
+		{
+			$data	= static::_getValues ($params);
+		}
+		
+		// Get count
+		
+		$count	= self::_Count ($params);
+
+		// If there was a problem return FALSE
+
+		if ($count === FALSE || $data === FALSE)
+		{
+			return FALSE;
+		}
+		
+		// Add class (for API XML response)
+		
+		$class	= self::_getClass ();
+		
+		foreach ($data as &$row)
+		{
+			$row['class']	= $class;
+		}
+		
+		// Return grid
+		
+		return array (
+			'total'	=> $count,
+			'rows'	=> $data
+		);
+
+	}
+	
+	
+	/**
+	 * Return a class resource
+	 *  This will either be the default as defined for the class or the global framework resource
+	 * @param string $name Resource name
+	 * @return object|boolean
+	 */
+	
+	public static function &_getResource ($name)
+	{
+		
+		if (isset (static::$defaultResources[$name]))
+		{
+			return Sonic::getResource (static::$defaultResources[$name]);
+		}
+		else
+		{
+			return Sonic::getResource ($name);
+		}
 		
 	}
 	
@@ -1626,6 +3032,40 @@ class Model
 	public static function pre ($var, $mode = 0)
 	{
 		
+		// If the variable is an object of type \Sonic\Model
+		
+		if (is_object ($var) && $var instanceof self)
+		{
+			
+			// Remove resources
+			
+			$var = clone $var;
+			$var->removeResources ();
+			
+		}
+		
+		// Else if the variable is an array
+		
+		else if (is_array ($var))
+		{
+			
+			// Foreach entry that is an object of type \Sonic\Model remove resources
+			
+			foreach ($var as &$val)
+			{
+				
+				if (is_object ($val) && $val instanceof self)
+				{
+					$val = clone $val;
+					$val->removeResources ();
+				}
+				
+			}
+			
+		}
+
+		// Output
+		
 		switch ($mode)
 		{
 			
@@ -1639,6 +3079,43 @@ class Model
 			
 		}
 		
+		
+	}
+	
+	
+	/**
+	 * Whether to write to the changelog
+	 * @param string $type Change type (create, update, delete)
+	 * @return boolean
+	 */
+	
+	private function changelog ($type)
+	{
+		
+		// If changelog or type is disabled for the class return FALSE
+		
+		if (isset (static::$changelogIgnore))
+		{
+			
+			if (static::$changelogIgnore === TRUE || 
+				is_array (static::$changelogIgnore) && in_array ($type, static::$changelogIgnore))
+			{
+				return FALSE;
+			}
+			
+		}
+		
+		// If there is no changelog resource defined or we're dealing with a changelog object return FALSE
+		
+		if (!($this->getResource ('changelog') instanceof \Sonic\Resource\Change\Log) || 
+			$this instanceof \Sonic\Resource\Change\Log || $this instanceof \Sonic\Resource\Change\Log\Column)
+		{
+			return FALSE;
+		}
+		
+		// Default return TRUE
+		
+		return TRUE;
 		
 	}
 	

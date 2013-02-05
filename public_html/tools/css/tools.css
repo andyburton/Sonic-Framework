@@ -123,6 +123,11 @@ legend
 	width: 100%;
 }
 
+.message_container a:hover
+{
+	text-decoration: underline;
+}
+
 .message_error
 {
 	display: block;
@@ -138,7 +143,7 @@ legend
 
 .message_error a
 {
-	color: #AD0303;
+	color: #e68739;
 }
 
 .message_success

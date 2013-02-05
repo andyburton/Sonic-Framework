@@ -25,6 +25,13 @@ class Db extends \PDO
 	private static $validSplit		= array ('AND', 'OR', '||', '&&');
 	
 	/**
+	 * Valid query clause seperators
+	 * @var array
+	 */
+	
+	private static $validOrder		= array ('ASC','DESC');
+	
+	/**
 	 * Keeps track of the number of transactions
 	 * @var int
 	 */
@@ -43,42 +50,49 @@ class Db extends \PDO
 	 * @var string
 	 */
 	
-	protected $_dsn		= FALSE;
+	private $_dsn		= FALSE;
 	
 	/**
 	 * Database Host
 	 * @var string
 	 */
 	
-	protected $_host	= '127.0.0.1';
+	private $_host	= '127.0.0.1';
 	
 	/**
 	 * Database Username
 	 * @var string
 	 */
 	
-	protected $_user	= FALSE;
+	private $_user	= FALSE;
 	
 	/**
 	 * Database Password
 	 * @var string
 	 */
 	
-	protected $_pass	= FALSE;
+	private $_pass	= FALSE;
 	
 	/**
 	 * Database Name
 	 * @var string
 	 */
 	
-	protected $_db_name	= FALSE;
+	private $_db_name	= FALSE;
 	
 	/**
 	 * Database PDO Options
 	 * @var array
 	 */
 	
-	protected $_options	= array ();
+	private $_options	= array ();
+	
+	/**
+	 * Other databases that are commited and rolled back at the same time
+	 * @var type 
+	 */
+	
+	private $_transaction_hooks	= array ();
 	
 	
 	/**
@@ -87,13 +101,12 @@ class Db extends \PDO
 	 * @param string $user Username
 	 * @param string $pass Password
 	 * @param array $options Connection Options
+	 * @return  @return \Sonic\Resource\Db
 	 */
 
 	public function __construct ($dsn, $user, $pass, $options)
 	{
-
 		$this->Connect ($dsn, $user, $pass, $options);
-
 	}
 	
 	
@@ -124,6 +137,38 @@ class Db extends \PDO
 			
 		}
 		
+	}
+	
+	
+	/**
+	 * Set connection details to the database
+	 * Will throw a PDOException is connection fails
+	 * @param string $dsn Data Source Name (DSN)
+	 * @param string $user Username
+	 * @param string $pass Password
+	 * @param array $options Connection Options
+	 * @return void
+	 */
+	
+	public function setConnection ($dsn = FALSE, $user = FALSE, $pass = FALSE, $options = FALSE)
+	{
+		
+		$this->_dsn		= $dsn?: $this->_dsn;
+		$this->_user	= $user?: $this->_user;
+		$this->_pass	= $pass?: $this->_pass;
+		$this->_options	= $options?: $this->_options;
+		
+	}
+	
+	
+	/**
+	 * Return database Data Source Name (DSN)
+	 * @return type string
+	 */
+	
+	public function getDSN ()
+	{
+		return $this->_dsn;
 	}
 	
 	
@@ -192,7 +237,7 @@ class Db extends \PDO
 
 					// If the last split is valid
 
-					if (in_array (strtoupper ($strSplit), self::validSplit))
+					if (in_array (strtoupper ($strSplit), self::$validSplit))
 					{
 
 						// Set it to the comparison used
@@ -223,12 +268,12 @@ class Db extends \PDO
 
 				// If the clause is an array
 
-				if (is_array($arrClause))
+				if (is_array ($arrClause))
 				{
 
 					// If there is a comparison type and it is valid
 
-					if (isset ($arrClause[2]) && in_array ($arrClause[2], self::validComparison))
+					if (isset ($arrClause[2]) && in_array ($arrClause[2], self::$validComparison))
 					{
 
 						// Set it to the comparison used
@@ -258,8 +303,15 @@ class Db extends \PDO
 					{
 
 						// Append
-
-						$strWHERE	.= '(' . $arrClause[1] . ') ';
+						
+						if (is_array ($arrClause[1]))
+						{
+							$strWHERE	.= '(' . implode (',', $arrClause[1]) . ') ';
+						}
+						else
+						{
+							$strWHERE	.= '(' . $arrClause[1] . ') ';
+						}
 
 					}
 
@@ -330,7 +382,7 @@ class Db extends \PDO
 
 					// If there is a split type and it is valid
 
-					if (isset ($arrClause[3]) && in_array (strtoupper ($arrClause[3]), self::validSplit))
+					if (isset ($arrClause[3]) && in_array (strtoupper ($arrClause[3]), self::$validSplit))
 					{
 
 						// Set it to the comparison used
@@ -403,9 +455,12 @@ class Db extends \PDO
 				if (is_array ($arrClause))
 				{
 
-					// If there no comparison or there is one, its valid and not IN, NOT IN
+					// If there no comparison or there is one, its valid and not IN, NOT IN, IS, IS NOT or BETWEEN
 
-					if (!isset ($arrClause[2]) || (in_array ($arrClause[2], self::validComparison)))
+					if (!isset ($arrClause[2]) || (
+						!in_array ($arrClause[2], array ('IN', 'NOT IN', 'IS', 'IS NOT', 'BETWEEN')) && 
+						in_array ($arrClause[2], self::$validComparison)
+						))
 					{
 
 						// Bind value
@@ -432,8 +487,8 @@ class Db extends \PDO
 	 *   where		- array of WHERE clauses that get's passed to self::genWHERE
 	 *   groupby	- array|string of GROUP BY clauses
 	 *   having		- array of HAVING clauses that gets passed to self::genWHERE and can only be used if 'groupby' is set
-	 *   orderby	- array|string of ORDER BY clauses
-	 *   limit		- string of a LIMIT clause
+	 *   orderby	- array|string of ORDER BY clause or array of clauses array (column, ASC|DESC)
+	 *   limit		- array|integer with the return limit number or array (start, limit)
 	 *
 	 * @param array $arrParams	Array of clauses to add to the SQL
 	 * @return string
@@ -472,7 +527,7 @@ class Db extends \PDO
 
 			// Generate WHERE clause
 			
-			$strWHERE	= $this->genClause ('WHERE', $this->genWHERE ($arrParams['where']));
+			$strWHERE	= $this->genClause ('WHERE', self::genWHERE ($arrParams['where']));
 
 		}
 		else
@@ -500,7 +555,7 @@ class Db extends \PDO
 
 			// Generate HAVING clause
 			
-			$strHAVING	= $this->genClause ('HAVING', $this->genWHERE ($arrParams['having']));
+			$strHAVING	= $this->genClause ('HAVING', self::genWHERE ($arrParams['having']));
 
 		}
 
@@ -509,30 +564,96 @@ class Db extends \PDO
 		if (!isset ($arrParams['orderby']))
 		{
 			$arrParams['orderby']	= NULL;
+		}	
+		else if (is_array ($arrParams['orderby']))
+		{
+			
+			// If just a single clause add into correct structure for validation
+			
+			if (count ($arrParams['orderby']) == 2 && 
+				!is_array ($arrParams['orderby'][0]) && 
+				!is_array ($arrParams['orderby'][1]))
+			{
+				$arrParams['orderby']	= array ($arrParams['orderby']);
+			}
+			
+			// Make sure the clauses are safe
+			
+			foreach ($arrParams['orderby'] as &$val)
+			{
+				
+				if (is_array ($val))
+				{
+					
+					foreach ($val as &$clause)
+					{
+						$clause = preg_replace ('/[^\w]/', '', $clause);
+					}
+					
+					$val = implode (' ', $val);
+					
+				}
+				else
+				{
+					
+					$arr	= explode (' ', $val);
+
+					if (count ($arr) == 2)
+					{
+
+						$arr[0]	= preg_replace ('/[^\w]/', '', $arr[0]);
+
+						if (!in_array ($arr[1], self::$validOrder))
+						{
+							unset ($arr[1]);
+						}
+
+						$val	= implode (' ', $arr);
+
+					}
+					else
+					{
+						$val	= preg_replace ('/[^\w]/', '', $val);
+					}
+					
+				}
+				
+			}
+			
 		}
 
 		$strORDERBY	= $this->genClause ('ORDER BY', $arrParams['orderby']);
 
 		// LIMIT clause
-
+		
 		if (!isset ($arrParams['limit']))
 		{
 			$arrParams['limit']	= NULL;
 		}
-
+		else if (is_array ($arrParams['limit']))
+		{
+			foreach ($arrParams['limit'] as &$val)
+			{
+				$val = intval ($val);
+			}
+		}
+		else
+		{
+			$arrParams['limit']	= intval ($arrParams['limit']);
+		}
+		
 		$strLIMIT	= $this->genClause ('LIMIT', $arrParams['limit']);
-
+		
 		// Put query together
 		
 		$strSQL		= $strSELECT . $strFROM . $strWHERE . $strGROUPBY . $strHAVING . $strORDERBY . $strLIMIT;
-
+		
 		// Return query
 		
 		return $strSQL;
 
 	}
 
-	
 	
 	/**
 	 * Generates a clause in an SQL statement
@@ -543,7 +664,7 @@ class Db extends \PDO
 	 * @return string
 	 */
 	
-	private function genClause ($strName, $mixOptions, $strDefault = FALSE, $strSeparator = ', ')
+	public function genClause ($strName, $mixOptions, $strDefault = FALSE, $strSeparator = ', ')
 	{
 
 		// Set clause
@@ -754,7 +875,7 @@ class Db extends \PDO
 		$arrParams['limit']	= '1';
 
 		// Query
-
+		
 		$query = $this->genQuery ($arrParams);
 		
 		// Execute
@@ -764,14 +885,14 @@ class Db extends \PDO
 		// Fetch the first set of results
 
 		$arrResult	= $query->fetch ($fetchMode);
-
+		
 		// If there is only 1 column
 
-		if (count ($arrResult) == 1)
+		if (is_array ($arrResult) && count ($arrResult) === 1)
 		{
 
 			// Return the first column only
-
+			
 			return array_shift ($arrResult);
 
 		}
@@ -798,7 +919,7 @@ class Db extends \PDO
 	
 	public function getValues ($arrParams)
 	{
-
+	
 		// If the params are not valid return FALSE
 
 		if (!$this->validateParams ($arrParams))
@@ -809,14 +930,16 @@ class Db extends \PDO
 		// Query
 		
 		$query = $this->genQuery ($arrParams);
-
+		
 		// Execute
 
 		$query->execute ();
-
+		
 		// If there is only 1 select param and it is not *
 		
-		if (count ($arrParams['select']) === 1 && $arrParams['select'][0] !== '*')
+		$arrSelect	= is_array ($arrParams['select'])? $arrParams['select'] : explode (',', $arrParams['select']);
+		
+		if (count ($arrSelect) === 1 && $arrSelect[0] !== '*')
 		{
 
 			// Set fetch mode to return only the first column of each row
@@ -836,7 +959,7 @@ class Db extends \PDO
 		// Fetch the first set of results
 
 		$arrResult	= $query->fetchAll ();
-
+		
 		// Return result
 
 		return $arrResult;
@@ -904,6 +1027,50 @@ class Db extends \PDO
 		// Return query execution status
 		
 		return $query->execute ();
+
+	}
+        
+        
+	/**
+	 * Get the query associate resultset with sql and bind params
+	 * @param type $strSQL
+	 * @param array $arrBindParams Query Parameters
+	 * @return mixed
+	 */
+
+	public function fetchAssocBySql ($strSQL, $arrBindParams = array ())
+	{
+
+		// Prepare query
+
+		$query = $this->prepare ($strSQL);
+
+		// Bind parameters
+
+		foreach ($arrBindParams as $key => $value)
+		{
+
+			if (is_array ($value))
+			{
+				$query->bindValue ($key, $value[0], $value[1]);
+			}
+			else
+			{
+				$query->bindValue ($key, $value);
+			}
+
+		}
+
+		// query execution status
+
+		$success = $query->execute ();
+
+		if (!$success)
+		{
+			return FALSE;
+		}
+
+		return $query->fetchAll (2);
 
 	}
 		
@@ -994,6 +1161,31 @@ class Db extends \PDO
 
 	
 	/**
+	 * Add a transaction hook to commit and rollback another database at the same time as this database
+	 * @param \Sonic\Resource\Db $db
+	 */
+	
+	public function addTransactionHook (\Sonic\Resource\Db &$db)
+	{
+		
+		// Get argument database DSN
+
+		$dsn	= $db->getDSN ();
+		
+		// Set if the databases are not the same and the the database isn't already hooked
+		
+		if ($dsn != $this->getDSN () && !isset ($this->_transaction_hooks[$dsn]))
+		{
+			$this->_transaction_hooks[$dsn]	=& $db;
+			return TRUE;
+		}
+		
+		return FALSE;
+		
+	}
+	
+	
+	/**
 	 * Begins a transaction only if there is not already a transaction in progress
 	 * @return boolean
 	 */
@@ -1009,7 +1201,7 @@ class Db extends \PDO
 		
 		if ($this->transactionCount++ === 0)
 		{
-			return parent::beginTransaction();
+			return parent::beginTransaction ();
 		}
 		else
 		{
@@ -1021,21 +1213,23 @@ class Db extends \PDO
 	
 	/**
 	 * Commits a transaction if the passed parameter is true, otherwise rolls it back
-	 * @param boolean $blnSuccess
+	 * @param boolean $status
 	 * @return boolean
 	 */
 	
-	public function commitIf ($blnSuccess)
+	public function commitIf ($status)
 	{
 
-		if ($blnSuccess === TRUE)
+		if ($status)
 		{
-			return $this->commit ();
+			$this->commit ();
 		}
 		else
 		{
-			return $this->rollback ();
+			$this->rollBack ();
 		}
+		
+		return $status;
 
 	}
 
@@ -1050,7 +1244,28 @@ class Db extends \PDO
 
 		if (--$this->transactionCount === 0)
 		{
-			return parent::commit ();
+			
+			$status	= parent::commit ();
+			
+			// Commit any hooked databases
+			
+			if ($this->_transaction_hooks)
+			{
+				
+				if ($status)
+				{
+					foreach ($this->_transaction_hooks as $dsn => &$db)
+					{
+						$db->commit ();
+					}
+				}
+				
+				$this->_transaction_hooks	= array ();
+				
+			}
+			
+			return $status;
+			
 		}
 		else
 		{
@@ -1070,14 +1285,54 @@ class Db extends \PDO
 
 		if (--$this->transactionCount === 0)
 		{
-			return parent::rollBack ();
+			
+			$status	= parent::rollBack ();
+			
+			// Rollback any hooked databases
+			
+			if ($this->_transaction_hooks)
+			{
+				
+				foreach ($this->_transaction_hooks as &$db)
+				{
+					$db->rollBack ();
+				}
+				
+				$this->_transaction_hooks	= array ();
+				
+			}
+			
+			return $status;
+			
 		}
 		else
 		{
 			return FALSE;
 		}
 
-
+	}
+	
+	
+	/**
+	 * Return the currently selected database
+	 * @return string
+	 */
+	
+	public function getDatabaseName ()
+	{
+		$query = $this->query ('SELECT database()');
+		return $query->fetchColumn ();
+	}
+	
+	
+	/**
+	 * Return depth of transactions
+	 * @return integer 
+	 */
+	
+	public function getTransactionCount ()
+	{
+		return $this->transactionCount;
 	}
 
 	

@@ -9,6 +9,12 @@ namespace Sonic\Model\Tools;
 class Db extends \Sonic\Model
 {
 	
+	/**
+	 * Databases
+	 * @var array
+	 */
+	
+	protected $databases		= FALSE;
 	
 	/**
 	 * Database tables
@@ -66,67 +72,100 @@ class Db extends \Sonic\Model
 	
 	
 	/**
-	 * Return an array of database tables
+	 * Return an array of databases
 	 * @return array
 	 */
 	
-	public function getTables ()
+	public function getDatabases ()
 	{
 		
 		// Get tables
 		
-		if ($this->tables === FALSE)
+		if ($this->databases === FALSE)
 		{
 			
-			$query	= $this->db->query ('SHOW TABLES');
-			$query->setFetchMode (\PDO::FETCH_COLUMN, 0);
-			
-			$this->tables	= $query->fetchAll ();
+			if (isset (\Sonic\Sonic::$resources['db']))
+			{
+				foreach (\Sonic\Sonic::$resources['db'] as $key => $db)
+				{
+					$this->databases[$key]	= $db->getDatabaseName ();
+				}
+			}
 			
 		}
 		
 		// Return tables
 		
-		return $this->tables;
+		return $this->databases;
+		
+	}
+	
+	
+	/**
+	 * Return an array of database tables
+	 * @param string $db Database Name
+	 * @return array
+	 */
+	
+	public function getTables ($db)
+	{
+		
+		// Get tables
+		
+		if (!isset ($this->tables[$db]))
+		{
+			
+			$query	= $this->db->query ('SHOW TABLES FROM ' . $db);
+			$query->setFetchMode (\PDO::FETCH_COLUMN, 0);
+			
+			$this->tables[$db]	= $query->fetchAll ();
+			
+		}
+		
+		// Return tables
+		
+		return $this->tables[$db];
 		
 	}
 	
 	
 	/**
 	 * Return an array of table columns
+	 * @param string $db Database Name
 	 * @param string $table Table Name
 	 * @return array
 	 */
 	
-	public function getColumns ($table)
+	public function getColumns ($db, $table)
 	{
 		
 		// Get columns
 		
-		if (!isset ($this->columns[$table]))
+		if (!isset ($this->columns[$db][$table]))
 		{
-			$this->columns[$table]	= $this->db->query ('SHOW COLUMNS FROM ' . $table)->fetchAll (\PDO::FETCH_NUM);
+			$this->columns[$db][$table]	= $this->db->query ('SHOW COLUMNS FROM ' . $db . '.' . $table)->fetchAll (\PDO::FETCH_NUM);
 		}
 		
 		// Return columns
 		
-		return $this->columns[$table];
+		return $this->columns[$db][$table];
 		
 	}
 	
 	
 	/**
 	 * Return a table primary key attribute name
+	 * * @param string $db Database Name
 	 * @param string $table Table Name
 	 * @return array
 	 */
 	
-	public function getPk ($table)
+	public function getPk ($db, $table)
 	{
 		
 		// Get pk name
 		
-		return $this->db->query ('SHOW COLUMNS FROM ' . $table . ' WHERE `Key` = \'PRI\'')->fetch (\PDO::FETCH_ASSOC);
+		return $this->db->query ('SHOW COLUMNS FROM ' . $db . '.' . $table . ' WHERE `Key` = \'PRI\'')->fetch (\PDO::FETCH_ASSOC);
 		
 	}
 	
@@ -134,25 +173,26 @@ class Db extends \Sonic\Model
 	
 	/**
 	 * Return an array of foreign key constraints columns
+	 * @param string $db Database Name
 	 * @param string $table Table Name
 	 * @return array
 	 */
 	
-	public function getRelations ($table)
+	public function getRelations ($db, $table)
 	{
 		
 		// If there are no table constraints
 		
-		if (!isset ($this->relations[$table]))
+		if (!isset ($this->relations[$db][$table]))
 		{
 			
 			// Set blank array
 			
-			$this->relations[$table]	= array ();
+			$this->relations[$db][$table]	= array ();
 			
 			// Query database
 			
-			$query	= $this->db->query ('SHOW CREATE TABLE ' . $table);
+			$query	= $this->db->query ('SHOW CREATE TABLE ' . $db . '.' . $table);
 			
 			// get SQL
 			
@@ -183,7 +223,7 @@ class Db extends \Sonic\Model
 					
 					// Add to relations array
 					
-					$this->relations[$table][]	= array (
+					$this->relations[$db][$table][]	= array (
 						'attribute'		=> $pattern[1], 
 						'table'			=> $pattern[2], 
 						'column'		=> $pattern[3]
@@ -197,7 +237,7 @@ class Db extends \Sonic\Model
 		
 		// Return relations
 		
-		return $this->relations[$table];
+		return $this->relations[$db][$table];
 		
 	}
 	
@@ -451,7 +491,7 @@ class Db extends \Sonic\Model
 					
 					// Set default
 					
-					$attribute['default']	= '\'' . ($column[4]?: '') . '\'';
+					$attribute['default']	= '\'' . (isset ($column[4])? $column[4] : '') . '\'';
 					
 					// Break
 					
@@ -496,10 +536,10 @@ class Db extends \Sonic\Model
 
 			if ($column[2] == 'YES')
 			{
-
+				
 				$attribute['null']		= 'TRUE';
 
-				if (!isset ($attribute['default']) || !$attribute['default'])
+				if (!isset ($attribute['default']) || !$attribute['default'] || $attribute['default'] == '\'\'')
 				{
 					$attribute['default']	= 'NULL';
 				}

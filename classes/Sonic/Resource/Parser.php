@@ -42,7 +42,7 @@ class Parser
 	 * @return string|boolean
 	 */
 	
-	public function getCharset ($name)
+	public static function _getCharset ($name)
 	{
 		
 		if (defined ('self::CHARSET_' . strtoupper ($name)))
@@ -65,14 +65,13 @@ class Parser
 	
 	public function charsetExists ($name)
 	{
-		
 		return defined ('self::CHARSET_' . strtoupper ($name));
-		
 	}
 	
 	
 	/**
 	 * Validate an attribute
+	 * @param string $name Attribute name
 	 * @param array $criteria The validation criteria
 	 *   The criteria can have the following keys:
 	 *   type - The value type (from the model TYPE constants), used by several other criteria
@@ -87,7 +86,30 @@ class Parser
 	 * @return void
 	 */
 	
-	public function Validate ($criteria, $val)
+	public function Validate ($name, $criteria, $val)
+	{
+		self::_Validate ($name, $criteria, $val);
+	}
+	
+	
+	/**
+	 * Validate an attribute
+	 * @param string $name Attribute name
+	 * @param array $criteria The validation criteria
+	 *   The criteria can have the following keys:
+	 *   type - The value type (from the model TYPE constants), used by several other criteria
+	 *   charset - Only allows characters from the given charset (passed to getCharset () e.g. 'default' = CHARSET_DEFAULT). Will cast value to a string.
+	 *   min - The minimum value, this is length if type = TYPE_STRING or value if type = TYPE_INT or TYPE_DECIMAL
+	 *   max - The maximum value, this is length if type = TYPE_STRING or value if type = TYPE_INT or TYPE_DECIMAL
+	 *   valid - Single value or array of function names.
+	 *   null - Whether the value can be NULL.
+	 *   values - Single value or array of values that are only allowed for the value.
+	 * @param mixed $val The value to validate
+	 * @throws Parser\Exception
+	 * @return void
+	 */
+	
+	public static function _Validate ($name, $criteria, $val)
 	{
 		
 		// If the value is null
@@ -103,7 +125,8 @@ class Parser
 			}
 			else
 			{
-				throw new Parser\Exception ('Invalid NULL value');
+//				\Sonic\Model::pre (debug_backtrace ());
+				throw new Parser\Exception ('Invalid NULL value for `' . $name . '`.');
 			}
 			
 		}
@@ -124,7 +147,7 @@ class Parser
 			
 			if (!in_array ($val, $criteria['values']))
 			{
-				throw new Parser\Exception ('Invalid value: ' . $val);
+				throw new Parser\Exception ('Invalid value `' . $val . '` for `' . $name . '`.');
 			}
 			
 		}
@@ -134,9 +157,23 @@ class Parser
 		if (isset ($criteria['charset']))
 		{
 			
-			// Get charset
+			// If the charset is not an array set as one
 			
-			$charset	= $this->getCharset($criteria['charset']);
+			if (!is_array ($criteria['charset']))
+			{
+				$criteria['charset']	= array ($criteria['charset']);
+			}
+			
+			// Set charset
+			
+			$charset	= NULL;
+			
+			// Loop through charsets and add together
+			
+			foreach ($criteria['charset'] as $charsetName)
+			{
+				$charset	.= self::_getCharset ($charsetName);
+			}
 			
 			// Get value length
 			
@@ -155,7 +192,7 @@ class Parser
 
 				if (strpos ($charset, $val[$i]) === FALSE)
 				{
-					throw new Parser\Exception ('Invalid character: ' . $val[$i]);
+					throw new Parser\Exception ('Invalid character `' . $val[$i] . '` in `' . $name . '`.');
 				}
 
 			}
@@ -192,7 +229,7 @@ class Parser
 					
 					if ($val < (float)$criteria['min'])
 					{
-						throw new Parser\Exception ('Minimum value is ' . (float)$criteria['min']);
+						throw new Parser\Exception ('`' . $name . '` must be at least ' . (float)$criteria['min'] . '.');
 					}
 					
 					break;
@@ -212,7 +249,17 @@ class Parser
 					
 					if (strlen ($val) < (int)$criteria['min'])
 					{
-						throw new Parser\Exception ('Minimum length is ' . (int)$criteria['min']);
+						
+						if ((int)$criteria['min'] == 1)
+						{
+							$word	= in_array (strtoupper ($name[0]), array ('A', 'E', 'I', 'O'))? 'an' : 'a';
+							throw new Parser\Exception ('You must enter ' . $word . ' `' . $name . '`.');
+						}
+						else
+						{
+							throw new Parser\Exception ('`' . $name . '` must be at least ' . (int)$criteria['min'] . ' character' . ((int)$criteria['min'] == 1? '' : 's') . '.');
+						}
+						
 					}
 					
 					break;
@@ -241,7 +288,6 @@ class Parser
 				// Numeric values, validate actual value
 				
 				case \Sonic\Model::TYPE_INT:
-				case \Sonic\Model::TYPE_INT_UNSIGNED:
 				case \Sonic\Model::TYPE_DECIMAL:
 					
 					// Cast to float
@@ -252,7 +298,7 @@ class Parser
 					
 					if ($val > (float)$criteria['max'])
 					{
-						throw new Parser\Exception ('Maximum value is ' . (float)$criteria['max']);
+						throw new Parser\Exception ('`' . $name . '` must be no more than ' . (float)$criteria['max'] . '.');
 					}
 					
 					break;
@@ -272,7 +318,7 @@ class Parser
 					
 					if (strlen ($val) > (int)$criteria['max'])
 					{
-						throw new Parser\Exception ('Maximum length is ' . (int)$criteria['max']);
+						throw new Parser\Exception ('`' . $name . '` must be no more than ' . (int)$criteria['max'] . ' character' . ((int)$criteria['max'] == 1? '' : 's') . '.');
 					}
 					
 					break;
@@ -300,18 +346,18 @@ class Parser
 				
 				// Set function name
 				
-				$function	= 'validate' . ucfirst ($function);
+				$function	= '_validate' . ucfirst ($function);
 				
 				// Check the method exists
 				
-				if (!method_exists ($this, $function))
+				if (!method_exists (get_class (), $function))
 				{
-					throw new Parser\Exception ('Invalid validation function: ' . $function);
+					throw new Parser\Exception ('Invalid validation function `' . $function . '` for `' . $name . '`.');
 				}
 				
 				// Call the method
 				
-				call_user_func (array ($this, $function), $val);
+				call_user_func (array (get_class (), $function), $val);
 				
 			}
 			
@@ -368,12 +414,31 @@ class Parser
 	
 	
 	/**
+	 * Return a namespace and class from a full class name (get_class or get_called_class)
+	 * @param string $class Full class name
+	 * @return array (namespace, class)
+	 */
+	
+	public static function _getNamespaceAndClass ($class)
+	{
+		
+		$arr		= explode ('\\', $class);
+		
+		$class		= array_pop ($arr);
+		$namespace	= implode ('\\', $arr);
+		
+		return array ($namespace, $class);
+		
+	}
+	
+	
+	/**
 	 * Convert a date from UK format (DD-MM-YYYY) to MySQL format (YYYY-MM-DD)
 	 * @param string $str Date to convert
 	 * @return string
 	 */
 	
-	public function convertUKDate ($str)
+	public static function _convertUKDate ($str)
 	{
 		return preg_replace ('/^(\d{2})([^\d]{1})(\d{2})([^\d]{1})(\d{2,4})$/', '$5-$3-$1', $str);
 	}
@@ -385,7 +450,7 @@ class Parser
 	 * @return type 
 	 */
 	
-	public function convertToUnixtime ($str)
+	public static function _convertToUnixtime ($str)
 	{
 		
 		// Set unixtime
@@ -440,19 +505,155 @@ class Parser
 	 * @return string
 	 */
 	
-	public function toISO ($str)
+	public static function _toISO ($str)
+	{
+		return mb_convert_encoding ($str, 'ISO-8859-1', mb_detect_encoding ($str, 'UTF-8, ISO-8859-1, ISO-8859-15', TRUE));
+	}
+	
+	
+	/**
+	 * Return a UTC date
+	 * @param string $format Date format to return
+	 * @param integer $time Unix time to get date for
+	 * @return string
+	 */
+	
+	public static function _utcDate ($format = 'Y-m-d H:i:s', $time = FALSE)
+	{
+		return $time? gmdate ($format, $time) : gmdate ($format);
+	}
+	
+	
+	/**
+	 * Return a UTC date
+	 * @param string $format Date format to return
+	 * @param integer $time Unix time to get date for
+	 * @return string
+	 */
+	
+	public function utcDate ($format = 'Y-m-d H:i:s', $time = FALSE)
+	{
+		return self::_utcDate ($format, $time);
+	}
+	
+	
+	/**
+	 * Convert a date between timezones
+	 * @param string $date Date time string
+	 * @param string $to Timezone to convert to
+	 * @param string $format Format to output, default to Y-m-d H:i:s
+	 * @param string $from Timezone to convert from, default UTC
+	 * @return string
+	 */
+	
+	public static function _convertTZ ($date, $to, $format = 'Y-m-d H:i:s', $from = 'UTC')
 	{
 		
-		return mb_convert_encoding ($str, 'ISO-8859-1', mb_detect_encoding ($str, 'UTF-8, ISO-8859-1, ISO-8859-15', TRUE));
+		$date = new \DateTime ($date, new \DateTimeZone ($from));
+		$date->setTimezone (new \DateTimeZone ($to));
+		
+		return $date->format ($format);
 		
 	}
 	
 	
+	/**
+	 * Returns the value of the key of the passed array if it exists or null if not
+	 * This saves having to explictly declare each array key to check that they exist
+	 * 
+	 * @param array $arrArray		The array to get the key from
+	 * @param string $mixKey		The name of the key or an array of keys if checking a nested array
+	 * @param mixed $mixReturn=NULL	The value to return if the array key does not exist
+	 * @return mixed
+	 */
+	
+	public static function _ak ($arrArray, $mixKey, $mixReturn = NULL)
+	{
+		
+		if (is_array ($arrArray))
+		{
+			
+			if (is_array ($mixKey))
+			{
+				
+				// Store $arrArray in a new var
+				
+				$arrPrev = $arrArray;
+				
+				// Loop through each entry in $mixKey
+				
+				for ($i = 0; $i < count ($mixKey); $i++)
+				{
+					
+					// If we are not at the last entry
+					
+					if ($i < count ($mixKey)-1)
+					{
+						
+						// If the current entry is an array
+						// update $arrPrev to the current entry
+						
+						if (is_array (self::_ak ($arrPrev, $mixKey[$i])))
+						{
+							
+							$arrPrev = $arrPrev[$mixKey[$i]];
+							
+						}
+						
+						// Current entry is not an array and we are not at the last entry either so the key doesn't exist
+						
+						else
+						{
+							break;
+						}
+						
+					}
+					
+					// We are at the last entry
+					
+					else
+					{
+						
+						// If $arrPrev is an array and the key exists return it
+						
+						if (is_array ($arrPrev) && isset ($arrPrev[$mixKey[$i]]))
+						{
+							return $arrPrev[$mixKey[$i]];
+						}
+						
+					}
+					
+				}
+				
+			}
+			
+			// $mixKey is not an array
+			
+			else
+			{
+				
+				// If the key exists in the array return it
+				
+				if (isset ($arrArray[$mixKey]))
+				{
+					return $arrArray[$mixKey];
+				}
+				
+			}
+			
+		}
+		
+		// Return the default return value as the key was not found in the array
+		
+		return $mixReturn;
+		
+	}
+	
 	
 	/**
 	 * Custom functions
-	 * Should all start with 'validate' followed by the function name
-	 * e.g. 'email' would be 'validateEmail'
+	 * Should all be static and start with '_validate' followed by the function name
+	 * e.g. 'email' would be '_validateEmail'
 	 */
 	
 	
@@ -463,10 +664,10 @@ class Parser
 	 * @return void
 	 */
 	
-	public function validateEmail ($val)
+	public static function _validateEmail ($val)
 	{
 		
-		if (!preg_match ('/^[a-zA-Z0-9_\.\-\']+@[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-\.]+[^\.]$/', $val))
+		if (!self::_isEmail ($val))
 		{
 			throw new Parser\Exception ('Invalid email address: ' . $val);
 		}
@@ -481,10 +682,10 @@ class Parser
 	 * @return void 
 	 */
 	
-	public function validateDate ($val)
+	public static function _validateDate ($val)
 	{
 		
-		if (!preg_match ('/^(\d{4})\D{1}(\d{2})\D{1}(\d{2})$/', $val))
+		if (!self::_isDate ($val))
 		{
 			throw new Parser\Exception ('Invalid date: ' . $val);
 		}
@@ -499,12 +700,97 @@ class Parser
 	 * @return void 
 	 */
 	
-	public function validateDateTime ($val)
+	public static function _validateDateTime ($val)
+	{
+		
+		if (!self::_isDateTime ($val))
+		{
+			throw new Parser\Exception ('Invalid date time: ' . $val);
+		}
+		
+	}
+	
+	
+	
+	/**
+	 * Check an email address is valid
+	 * @param string $val Value to validate
+	 * @return boolean
+	 */
+	
+	public static function _isEmail ($val)
+	{
+		
+		if (!preg_match ('/^[a-zA-Z0-9_\.\-\']+@[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-\.]+[^\.]$/', $val))
+		{
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
+		}
+		
+	}
+	
+	
+	/**
+	 * Check a date is a valid date YYYY-MM-DD
+	 * @param string $val Value to validate
+	 * @return boolean 
+	 */
+	
+	public static function _isDate ($val)
+	{
+		
+		if (!preg_match ('/^(\d{4})\D{1}(\d{2})\D{1}(\d{2})$/', $val))
+		{
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
+		}
+		
+	}
+	
+	
+	/**
+	 * Check a date is a valid date YYYY-MM-DD HH:II:SS
+	 * @param string $val Value to validate
+	 * @return boolean 
+	 */
+	
+	public static function _isDateTime ($val)
 	{
 		
 		if (!preg_match ('/^(\d{4})\D{1}(\d{2})\D{1}(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $val))
 		{
-			throw new Parser\Exception ('Invalid date time: ' . $val);
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
+		}
+		
+	}
+	
+	
+	/**
+	 * Check a date is in UK format (DD-MM-YYYY)
+	 * @param string $val Value to validate
+	 * @return boolean 
+	 */
+	
+	public static function _isUKDate ($val)
+	{
+		
+		if (!preg_match ('/^(\d{2})([^\d]{1})(\d{2})([^\d]{1})(\d{2,4})$/', $val))
+		{
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
 		}
 		
 	}

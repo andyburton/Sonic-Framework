@@ -4,9 +4,20 @@
 
 namespace Sonic;
 
-// Require settings
+// Directory seperator
 
-require_once ('www.php');
+if (!defined ('DS'))
+{
+	@define ('DS',	defined ('DIRECTORY_SEPARATOR')? DIRECTORY_SEPARATOR : '/');
+}
+
+// Require global paths
+
+require_once ('paths.php');
+
+// Setup config
+
+require_once ('config.php');
 
 // Require framework
 
@@ -20,6 +31,6 @@ Sonic::autoload ();
 
 Sonic::newResource ('parser',		new Resource\Parser);
 
-// Require database
+// Load config
 
-require_once ('db.php');
+require_once (CONFIG_DIR . 'config.php');

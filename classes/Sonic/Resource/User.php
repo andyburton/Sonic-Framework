@@ -335,9 +335,9 @@ class User extends \Sonic\Model
 		{
 			return $this->Logout ('user_read_error');
 		}
-
-		// Remove password
-
+		
+		// Reset password
+		
 		$this->reset ('password');
 		
 		// If the user is not active or the active status has changed
@@ -543,8 +543,8 @@ class User extends \Sonic\Model
 			return 'invalid_user';
 		}
 		
-		// Remove password
-
+		// Reset password
+		
 		$user->reset ('password');
 		
 		// Set timestamps
@@ -582,20 +582,29 @@ class User extends \Sonic\Model
 			return FALSE;
 		}
 		
+		// Check password
+		
+		return $user->checkPassword ($password);
+		
+	}
+	
+	
+	/**
+	 * Return whether a password is valid
+	 * @param string $check Password to check
+	 * @return boolean
+	 */
+	
+	public function checkPassword ($check)
+	{
+		
 		// Get hasher
 		
 		$hasher	= static::_newHasher ();
 		
 		// Check the password is valid
 		
-		if (!$hasher->CheckPassword ($password, $user->get ('password')))
-		{
-			return FALSE;
-		}
-		
-		// Return TRUE
-		
-		return TRUE;
+		return $hasher->CheckPassword ($check, $this->get ('password'));
 		
 	}
 	

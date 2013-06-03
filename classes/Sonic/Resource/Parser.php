@@ -112,6 +112,8 @@ class Parser
 	public static function _Validate ($name, $criteria, $val)
 	{
 		
+		$name	= ucwords ($name);
+		
 		// If the value is null
 		
 		if (is_null ($val))
@@ -125,8 +127,7 @@ class Parser
 			}
 			else
 			{
-//				\Sonic\Model::pre (debug_backtrace ());
-				throw new Parser\Exception ('Invalid NULL value for `' . $name . '`.');
+				throw new Parser\Exception ('Invalid NULL value for ' . $name);
 			}
 			
 		}
@@ -147,7 +148,7 @@ class Parser
 			
 			if (!in_array ($val, $criteria['values']))
 			{
-				throw new Parser\Exception ('Invalid value `' . $val . '` for `' . $name . '`.');
+				throw new Parser\Exception ('Invalid value `' . $val . '` for ' . $name);
 			}
 			
 		}
@@ -192,7 +193,7 @@ class Parser
 
 				if (strpos ($charset, $val[$i]) === FALSE)
 				{
-					throw new Parser\Exception ('Invalid character `' . $val[$i] . '` in `' . $name . '`.');
+					throw new Parser\Exception ('Invalid character `' . $val[$i] . '` in ' . $name);
 				}
 
 			}
@@ -229,7 +230,7 @@ class Parser
 					
 					if ($val < (float)$criteria['min'])
 					{
-						throw new Parser\Exception ('`' . $name . '` must be at least ' . (float)$criteria['min'] . '.');
+						throw new Parser\Exception ($name . ' must be at least ' . (float)$criteria['min']);
 					}
 					
 					break;
@@ -253,11 +254,11 @@ class Parser
 						if ((int)$criteria['min'] == 1)
 						{
 							$word	= in_array (strtoupper ($name[0]), array ('A', 'E', 'I', 'O'))? 'an' : 'a';
-							throw new Parser\Exception ('You must enter ' . $word . ' `' . $name . '`.');
+							throw new Parser\Exception ('You must enter ' . $word . ' ' . $name);
 						}
 						else
 						{
-							throw new Parser\Exception ('`' . $name . '` must be at least ' . (int)$criteria['min'] . ' character' . ((int)$criteria['min'] == 1? '' : 's') . '.');
+							throw new Parser\Exception ($name . ' must be at least ' . (int)$criteria['min'] . ' character' . ((int)$criteria['min'] == 1? '' : 's'));
 						}
 						
 					}
@@ -298,7 +299,7 @@ class Parser
 					
 					if ($val > (float)$criteria['max'])
 					{
-						throw new Parser\Exception ('`' . $name . '` must be no more than ' . (float)$criteria['max'] . '.');
+						throw new Parser\Exception ($name . ' must be no more than ' . (float)$criteria['max']);
 					}
 					
 					break;
@@ -318,7 +319,7 @@ class Parser
 					
 					if (strlen ($val) > (int)$criteria['max'])
 					{
-						throw new Parser\Exception ('`' . $name . '` must be no more than ' . (int)$criteria['max'] . ' character' . ((int)$criteria['max'] == 1? '' : 's') . '.');
+						throw new Parser\Exception ($name . ' must be no more than ' . (int)$criteria['max'] . ' character' . ((int)$criteria['max'] == 1? '' : 's'));
 					}
 					
 					break;
@@ -352,7 +353,7 @@ class Parser
 				
 				if (!method_exists (get_class (), $function))
 				{
-					throw new Parser\Exception ('Invalid validation function `' . $function . '` for `' . $name . '`.');
+					throw new Parser\Exception ('Invalid validation function `' . $function . '` for ' . $name);
 				}
 				
 				// Call the method

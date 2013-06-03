@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * Collection class for group of \Sonic\Model objects
+ */
+
 // Define namespace
 
 namespace Sonic\Resource\Model;
@@ -11,7 +15,7 @@ class Collection extends \ArrayObject
 	
 	
 	/**
-	 * Magic call method to catch undesigned methods
+	 * Magic call method to catch undefined methods
 	 * Used to allow global array functions on collection
 	 * @param string $function Function name
 	 * @param array $args Function arguments
@@ -22,12 +26,37 @@ class Collection extends \ArrayObject
 	public function __call ($function, $args)
 	{
 		
-		if (!is_callable ($function) || substr ($function, 0, 6) !== 'array_')
+		// Callable array function
+		
+		if (is_callable ($function, TRUE) && substr ($function, 0, 6) == 'array_')
+		{
+			return call_user_func_array ($function, array_merge (array ($this->getArrayCopy ()), $args));
+		}
+		
+		// Model method
+		
+		elseif (is_callable (array ('Sonic\Model', $function)))
+		{
+			
+			$arr	= array ();
+			$it		= $this->getIterator ();
+
+			while ($it->valid ())
+			{
+				$arr[$it->key ()] = call_user_func_array (array ($it->current (), $function), $args);
+				$it->next ();
+			}
+
+			return $arr;
+			
+		}
+		
+		// Bad method
+		
+		else
 		{
 			throw new \BadMethodCallException (__CLASS__ . '->' . $function);
 		}
-		
-		return call_user_func_array ($function, array_merge (array ($this->getArrayCopy ()), $args));
 		
 	}
 	

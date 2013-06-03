@@ -30,6 +30,11 @@ class Smarty extends \Smarty
 		$this->setConfigDir (SMARTY_CONFIG_DIR);
 		$this->addPluginsDir (SMARTY_PLUGINS_DIR);
 		
+		if (defined ('SMARTY_ERROR_REPORTING'))
+		{	
+			$this->error_reporting	= SMARTY_ERROR_REPORTING;
+		}
+		
 	}
 	
 	
@@ -51,6 +56,13 @@ class Smarty extends \Smarty
 		// Add the controller path and convert \ to /
 		
 		$template	.= $controller? str_replace ('\\', '/', $controller) . '/' : '';
+		
+		// Remove initial /
+		
+		if ($template[0] == '/')
+		{
+			$template	= substr ($template, 1);
+		}
 		
 		// If there is no template file yet just use the action
 		

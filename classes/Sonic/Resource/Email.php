@@ -162,19 +162,16 @@ class Email
 	 * Set log status
 	 * @var boolean
 	 */
-
-        public $logFlag				= FALSE;
-
-        
-        /**
+	
+	public $logFlag				= FALSE;
+	
+	/**
 	 * Set log status
 	 * @var boolean
 	 */
-
-        private $_callbackMethod		= FALSE;
-
-        
-        
+	
+	private $_callbackMethod		= FALSE;
+	
 	
 	/**
 	 * Instantiate the class

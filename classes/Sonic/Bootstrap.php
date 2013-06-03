@@ -46,6 +46,13 @@ class Bootstrap
 	
 	public $view					= FALSE;
 	
+	/**
+	 * Check for controller captureall function if action is not found
+	 * @var boolean
+	 */
+	
+	public $captureall				= TRUE;
+	
 	
 	/**
 	 * Instantiate class
@@ -94,9 +101,11 @@ class Bootstrap
 		
 		$this->urlProcessor->Process ();
 		
-		// If there is no controller check for default index class
+		// If there is no controller check for default index class and action
 		
-		if (!$this->urlProcessor->controller && Sonic::_classExists ($controllerClass	. '\\Index'))
+		if (!$this->urlProcessor->controller && 
+			Sonic::_classExists ($controllerClass . '\\Index') && 
+			method_exists ($controllerClass . '\\Index', $this->urlProcessor->action))
 		{
 			$this->urlProcessor->controller	= 'Index';
 		}
@@ -105,17 +114,98 @@ class Bootstrap
 
 		$controllerClass	.= $this->urlProcessor->controller? '\\' . $this->urlProcessor->controller : NULL;
 		
+		// If the controller doesnt exist or the action doesnt exist on the controller
+		
+		if (!Sonic::_classExists ($controllerClass) || !method_exists ($controllerClass, $this->urlProcessor->action))
+		{
+			
+			// Try capture all on the controller
+			// e.g. /admin -> \Sonic\Controller\Index->captureall ()
+			
+			if ($this->captureall && 
+				Sonic::_classExists ($controllerClass) && 
+				method_exists ($controllerClass, 'captureall'))
+			{
+				$this->urlProcessor->action		= 'captureall';
+			}
+			
+			// Try action as controller with index action
+			// e.g. /admin -> \Sonic\Controller\Admin->index ()
+			
+			elseif (Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
+				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action), 'index'))
+			{
+				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action);
+				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action);
+				$this->urlProcessor->action		= 'index';
+			}
+			
+			// Try action as controller with captureall action
+			// e.g. /admin -> \Sonic\Controller\Admin->captureall ()
+			
+			elseif ($this->captureall && 
+				Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
+				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action), 'captureall'))
+			{
+				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action);
+				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action);
+				$this->urlProcessor->action		= 'captureall';
+			}
+			
+			// Try Action\Index as the controller with index action
+			// e.g. /admin -> \Sonic\Controller\Admin\Index->index ()
+
+			elseif (Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
+				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index', 'index'))
+			{
+				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
+				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
+				$this->urlProcessor->action		= 'index';
+			}
+			
+			// Try Action\Index as the controller with captureall action
+			// e.g. /admin -> \Sonic\Controller\Admin\Index->captureall ()
+
+			elseif ($this->captureall && 
+				Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
+				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index', 'captureall'))
+			{
+				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
+				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
+				$this->urlProcessor->action		= 'captureall';
+			}
+			
+			// Remove starting \ from controller
+			
+			if (substr ($this->urlProcessor->controller, 0, 1) == '\\')
+			{
+				$this->urlProcessor->controller	= substr ($this->urlProcessor->controller, 1);
+			}
+			
+		}
+		
+		// Error if the controller and action do not exist
+		
+		if (!Sonic::_classExists ($controllerClass) || !method_exists ($controllerClass, $this->urlProcessor->action))
+		{
+			throw new Exception ('Invalid controller action: ' . $this->urlProcessor->controller . '\\' . $this->urlProcessor->action, 404);
+		}
+		
 		// Instantiate controller
 		
 		$controllerObj		= new $controllerClass;
 		
 		// Set controller variables
 		
-		$controllerObj->module		= $this->controllerModule;
+		if ($this->controllerModule)
+		{
+			$controllerObj->module		= $this->controllerModule;
+		}
+		
 		$controllerObj->controller	= $this->urlProcessor->controller;
 		$controllerObj->action		= $this->urlProcessor->action;
 		
-		// Set controller view is none is set and one is set in the bootstrap
+		// Set controller view if none is set and one is set in the bootstrap
 		
 		if ($this->view && !$controllerObj->view)
 		{
@@ -141,11 +231,11 @@ class Bootstrap
 			
 		}
 		
-		// Otherwise throw exception
+		// Otherwise error 404
 		
 		else
 		{
-			throw new Exception ('Invalid controller action: ' . $controllerObj->action);
+			throw new Exception ('Invalid controller action: ' . $controllerObj->controller . '\\' . $controllerObj->action, 404);
 		}
 		
 		// Display view

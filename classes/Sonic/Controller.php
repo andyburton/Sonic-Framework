@@ -88,12 +88,13 @@ class Controller
 	
 	/**
 	 * Check that the controller action is valid
+	 * Any action in invalidAction or beginning with __ is invalid
 	 * @return boolean 
 	 */
 	
 	public function isActionValid ()
 	{
-		return !in_array (strtolower ($this->action), $this->invalidActions);
+		return substr ($this->action, 0, 2) !== '__' && !in_array (strtolower ($this->action), $this->invalidActions);
 	}
 	
 	

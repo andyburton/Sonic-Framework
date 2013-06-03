@@ -2,7 +2,7 @@
 
 // Define email settings
 
-@define ('EMAIL_LOG',				FALSE);
+@define ('EMAIL_LOG',				TRUE);
 @define ('EMAIL_LOG_PATH',			ABS_LOG . 'email' . DS);
 
 @define ('EMAIL_SERVER',			'localhost');

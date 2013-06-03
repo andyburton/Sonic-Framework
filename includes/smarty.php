@@ -8,30 +8,13 @@ namespace Sonic;
 
 require_once ('paths.php');
 
-// Define smarty template path
+// Check for smarty config
 
-@define ('ABS_SMARTY',	ABS_PARENT . 'smarty-repo' . DS);
-
-// Require smarty class
-
-require_once (ABS_SMARTY . 'libs' . DS . 'Smarty.class.php');
-
-// Set template resource
-
-Sonic::newResource ('tpl',	new \Smarty);
-
-// Get template resource
-
-$tpl	= Sonic::getResource ('tpl');
-
-// Set smarty config
-
-$tpl->setTemplateDir (ABS_SMARTY . 'templates');
-$tpl->setCacheDir (ABS_SMARTY . 'cached');
-$tpl->setCompileDir (ABS_SMARTY . 'compiled');
-$tpl->setConfigDir (ABS_SMARTY . 'config');
-$tpl->addPluginsDir (ABS_SMARTY . 'plugins');
-
-// Disable caching
-
-$tpl->caching	= FALSE;
+if (file_exists (CONFIG_DIR . 'smarty.php'))
+{
+	require_once (CONFIG_DIR . 'smarty.php');
+}
+else
+{
+	exit ('`' . CONFIG . '` smarty config does not exist');
+}

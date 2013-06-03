@@ -642,7 +642,10 @@ class Model
 		
 		// Execute
 		
-		$this->executeCreateUpdateQuery ($query);
+		if (!$this->executeCreateUpdateQuery ($query))
+		{
+			return FALSE;
+		}
 		
 		// Set the pk
 
@@ -704,7 +707,7 @@ class Model
 		$updateVals	= substr ($updateVals, 2);
 		
 		// Prepare query
-
+		
 		$query	= $this->db->prepare ('
 		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
 		VALUES ( ' . $create['values'] . ') 
@@ -730,7 +733,10 @@ class Model
 		
 		// Execute
 		
-		$this->executeCreateUpdateQuery ($query);
+		if (!$this->executeCreateUpdateQuery ($query))
+		{
+			return FALSE;
+		}
 		
 		// Set the pk
 
@@ -738,7 +744,7 @@ class Model
 		{
 			$this->iset (static::$pk, $this->db->lastInsertID ());
 		}
-
+		
 		// return TRUE
 
 		return TRUE;
@@ -920,7 +926,7 @@ class Model
 	/**
 	 * Execute create or update query and cope with an exception
 	 * @param \PDOStatement $query Query object to bind values to
-	 * @return void
+	 * @return boolean
 	 * @throws PDOException 
 	 */
 	
@@ -932,6 +938,7 @@ class Model
 		try
 		{
 			$query->execute ();
+			return TRUE;
 		}
 		catch (\PDOException $e)
 		{
@@ -950,7 +957,7 @@ class Model
 					if (preg_match ('/Duplicate entry \'(.*?)\' for key \'(.*?)\'/', $e->getMessage (), $match))
 					{
 						$name	= $this->attributeExists ($match[2]) && isset (static::$attributes[$match[2]]['name'])? static::$attributes[$match[2]]['name'] : $match[2];
-						new Message ('error',  'Please choose another ' . ucwords ($name) . ', `' . $match[1] . '` already exists!');
+						new Message ('error',  'Please choose another ' . ucwords ($name) . ' `' . $match[1] . '` already exists!');
 						return FALSE;
 					}
 
@@ -1145,7 +1152,10 @@ class Model
 		
 		// Execute
 		
-		$this->executeCreateUpdateQuery ($query);
+		if (!$this->executeCreateUpdateQuery ($query))
+		{
+			return FALSE;
+		}
 		
 		// Changelog
 		
@@ -1561,7 +1571,7 @@ class Model
 						case 'children':
 
 							$args		= isset ($relation[2])? $relation[2] : FALSE;
-							$obj		= $this->getChildren ($relation[1]);
+							$obj		= isset ($relation[3])? $this->getChildren ($relation[1], FALSE, FALSE, $relation[3]) : $this->getChildren ($relation[1]);
 							$arr[$name]	= $obj? $obj->toArray ($args) : '';
 
 							break;
@@ -1722,7 +1732,7 @@ class Model
 					
 					$word	= in_array (strtoupper ($name[0]), array ('A', 'E', 'I', 'O'))? 'an' : 'a';
 					
-					new Message ('error', 'You have not entered ' . $word . ' `' . $name . '`.');
+					new Message ('error', 'You have not entered ' . $word . ' ' . ucwords ($name));
 					
 				}
 				
@@ -1784,13 +1794,14 @@ class Model
 	 * @param boolean $recursive Whether to load childrens children.
 	 *   This will create an object attribute called 'children' on all objects
 	 * @param boolean $index Return indexed child array rather than object array
+	 * @param string $key Attribute to use as array key
 	 * @return array|boolean 
 	 */
 	
-	public function getChildren ($class, $recursive = FALSE, $index = FALSE)
+	public function getChildren ($class, $recursive = FALSE, $index = FALSE, $key = FALSE)
 	{
 		
-		$children	= self::_getChildren ($class, $this->iget (self::$pk), $recursive);
+		$children	= self::_getChildren ($class, $this->iget (self::$pk), $recursive, $key);
 		
 		if ($index)
 		{
@@ -2815,10 +2826,11 @@ class Model
 	 * @param integer $id Parent ID
 	 * @param boolean $recursive Whether to load childrens children.
 	 *   This will create an object attribute called 'children' on all objects
+	 * @param string $key Attribute to use as array key
 	 * @return array|boolean
 	 */
 	
-	public static function _getChildren ($class, $id, $recursive = FALSE)
+	public static function _getChildren ($class, $id, $recursive = FALSE, $key = FALSE)
 	{
 		
 		// Remove first \ from class
@@ -2875,7 +2887,7 @@ class Model
 			);
 		}
 		
-		$children	= $class::_getObjects ($params);
+		$children	= $class::_getObjects ($params, $key);
 		
 		// Get recursively
 		
@@ -2884,7 +2896,7 @@ class Model
 			
 			foreach ($children as &$child)
 			{
-				$child->children	= $child->getChildren ($class, $recursive);
+				$child->children	= $child->getChildren ($class, $recursive, FALSE, $key);
 			}
 			
 		}

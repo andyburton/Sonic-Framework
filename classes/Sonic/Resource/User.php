@@ -73,10 +73,11 @@ class User extends \Sonic\Model
 	
 	/**
 	 * Instantiate class
+	 * @param string $session_id Session ID
 	 * @return  @return \Sonic\Resource\User
 	 */
 	
-	public function __construct ()
+	public function __construct ($session_id = FALSE)
 	{
 		
 		// Call parent
@@ -85,7 +86,7 @@ class User extends \Sonic\Model
 		
 		// Set session
 		
-		$this->session	= Session::singleton ();
+		$this->session	= Session::singleton ($session_id);
 		
 	}
 	
@@ -93,10 +94,11 @@ class User extends \Sonic\Model
 	/**
 	 * Create a new user
 	 * @param array $exclude Attributes not to set
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function Create ($exclude = array ())
+	public function Create ($exclude = array (), &$db = FALSE)
 	{
 		
 		// Check email is unique
@@ -121,7 +123,7 @@ class User extends \Sonic\Model
 		
 		// Call parent method
 		
-		$parent	= parent::Create ($exclude);
+		$parent	= parent::Create ($exclude, $db);
 		
 		// Reset password
 		
@@ -137,10 +139,11 @@ class User extends \Sonic\Model
 	/**
 	 * Update a user
 	 * @param array $exclude Attributes not to update
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function Update ($exclude = array ())
+	public function Update ($exclude = array (), &$db = FALSE)
 	{
 		
 		// Check email is unique
@@ -193,7 +196,7 @@ class User extends \Sonic\Model
 		
 		// Call parent method
 		
-		$parent	= parent::Update ($exclude);
+		$parent	= parent::Update ($exclude, $db);
 		
 		// Reset password
 		
@@ -362,6 +365,15 @@ class User extends \Sonic\Model
 		
 		$this->loggedIn	= TRUE;
 		
+		// Redirect to originally requested URL
+		
+		if ($this->session->get ('requested_url'))
+		{
+			$url = $this->session->get ('requested_url');
+			$this->session->set ('requested_url', FALSE);
+			new Redirect ($url);
+		}
+		
 		// return TRUE
 		
 		return TRUE;
@@ -509,6 +521,10 @@ class User extends \Sonic\Model
 		
 		$this->session->Create ();
 		$this->session->Refresh ();
+		
+		// Store requested URL
+		
+		$this->session->set ('requested_url', $_SERVER['REQUEST_URI']);
 		
 		// Return
 		

@@ -15,14 +15,14 @@ class Sonic
 	 * @var array 
 	 */
 	
-	public static $resources	= array ();
+	public static $resources			= array ();
 	
 	/**
-	* Selected resources
-	* @var array
-	*/
+	 * Resource settings
+	 * @var array
+	 */
 	
-	public static $selectedResources	= array ();
+	private static $resourceSettings	= array ();
 	
 	
 	/**
@@ -48,10 +48,18 @@ class Sonic
 	/**
 	 * Class autoloader
 	 * @param string $class Class name
+	 * @return void
 	 */
 	
 	public static function _autoload ($class)
 	{
+		
+		// Strip first \
+		
+		while (strpos ($class, '\\') === 0)
+		{
+			$class = substr ($class, 1);
+		}
 		
 		// If we're loading a sonic class
 		
@@ -67,11 +75,11 @@ class Sonic
 			
 			if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $class . '.php'))
 			{
-				@include_once (ABS_SONIC . $class . '.php');
+				include_once (ABS_SONIC . $class . '.php');
 			}
-			else
+			else if (file_exists (ABS_CLASSES . $class . '.php'))
 			{
-				@include_once (ABS_CLASSES . $class . '.php');
+				include_once (ABS_CLASSES . $class . '.php');
 			}
 			
 		}
@@ -82,7 +90,7 @@ class Sonic
 	/**
 	 * Check if a sonic class exists
 	 * @param string $class Class name
-	 * @return type 
+	 * @return boolean 
 	 */
 	
 	public static function _classExists ($class)
@@ -185,12 +193,15 @@ class Sonic
 	 * @param string|array $name Resource name
 	 *   You can group resources by passing array ('group', 'name')
 	 * @param object $resource Resource object
-	 * @param boolean $select Set as default resource for the group
+	 * @param boolean $select Set as default resource for the group (overwriting any existing)
 	 * @param boolean $override Override any existing resources with the name group and name
+	 * @param boolean $default Whether to check and set the group default resource
+	 *   Default TRUE will set the first group resource as the default
+	 *   FALSE will not check, and as such will not set the resource as the default unless $select is TRUE
 	 * @return void
 	 */
 	
-	public static function newResource ($name, $resource, $select = FALSE, $overrride = FALSE)
+	public static function newResource ($name, $resource, $select = FALSE, $overrride = FALSE, $default = TRUE)
 	{
 		
 		// Set group and name
@@ -204,16 +215,153 @@ class Sonic
 			throw new Exception ('The ' . ($group? $group . '\\': '') . $name . ' resource already exists.');
 		}
 		
-		// If no resource default exists or we're selecting the resource as default, set as default
+		// If we're setting the resource as default or no resource default exists, set as default
 		
-		if (!isset (self::$selectedResources[$group]) || $select)
+		if ($select || ($default && !self::getGroupSetting ($group, 'default')))
 		{
-			self::$selectedResources[$group]	= $name;
+			self::setGroupSetting ($group, 'default', $name);
 		}
 		
 		// Set the resource
 		
 		self::$resources[$group][$name]	= $resource;
+		
+	}
+	
+	
+	/**
+	 * Set a group of framework resources
+	 * @param string $group Resource group name
+	 * @param array $resources Resource objects to add to the group
+	 *   Each item can be an object which will have an auto generated name or an array with:
+	 *   array (0 => resource object, 1 => name, 2 => select, 3 => override)
+	 * @param boolean $setDefault Whether to check and set the group default resource
+	 *   Default TRUE will set the first group resource as the default
+	 *   FALSE will not check, and as such will not set the resource as the default unless $select is TRUE
+	 *   @see newResource
+	 * @param boolean $defaultOverride Default override flag if not specified for the resource
+	 * @return void
+	 */
+	
+	public static function newResources ($group, $resources, $setDefault = TRUE, $defaultOverride = FALSE)
+	{
+		
+		// Add each resource
+		
+		foreach ($resources as $resource)
+		{
+			
+			// Default settings
+			
+			$select		= FALSE;
+			$name		= FALSE;
+			$override	= $defaultOverride;
+			
+			// The resource is an object so add it as-is
+			
+			if (is_object ($resource))
+			{
+				$obj	= $resource;
+			}
+			
+			// Else the resource is not an object and is not an array with its 1st item being an object
+			
+			elseif (!is_array ($resource) || !$resource || !is_object ($resource[0]))
+			{
+				throw new Exception ('Invalid resource to add to group ' . $group);
+			}
+			
+			// Else the resource is an array so lets work out any specific settings
+			
+			else
+			{
+				foreach ($resource as $arg => $val)
+				{
+					
+					switch ($arg)
+					{
+						
+						// Resource object
+						
+						case 0:
+							$obj	= $val; break;
+						
+						// Resource name
+						
+						case 1:
+							$name	= $val; break;
+						
+						// Default resource
+						
+						case 2:
+							$select	= $val; break;
+						
+						// Override
+						
+						case 3:
+							$override	= $val; break;
+							
+					}
+					
+				}
+				
+			}
+			
+			// Auto generate name if none is specified
+			
+			if (!$name)
+			{
+				$name	= $group . '-' . (self::countResourceGroup ($group) +1);
+			}
+			
+			// Add the resource to the group
+			
+			self::newResource (array ($group, $name), $obj, $select, $override, $setDefault);
+			
+		}
+		
+	}
+	
+	
+	/**
+	 * Delete resource or resource group
+	 * @param string $group Resource group
+	 * @param string $name Resource name, if not specified the entire resource group will be removed
+	 * @return void
+	 */
+	
+	public static function removeResource ($group, $name = FALSE)
+	{
+		
+		// Remove resource from group
+		
+		if ($name)
+		{
+			
+			unset (self::$resources[$group][$name]);
+			
+			// Remove default if set to resource
+			
+			if (self::getGroupSetting ($group, 'default') == $name)
+			{
+				self::removeDefault ($group);
+			}
+			
+		}
+		
+		// Else remove group
+		
+		else
+		{
+			unset (self::$resources[$group]);
+		}
+		
+		// Remove group settings if nothing left in the group
+		
+		if (self::countResourceGroup ($group) < 1)
+		{
+			unset (self::$resourceSettings[$group]);
+		}
 		
 	}
 	
@@ -262,14 +410,14 @@ class Sonic
 		
 		$resources	= array ();
 		
-		// For each selected resource
+		// For each group get default
 		
-		foreach (self::$selectedResources as $group => $name)
+		foreach (array_keys (self::$resourceSettings) as $group)
 		{
 			
 			// Reference selected resource
 			
-			$resources[$group]	=& self::getResource (array ($group, $name));
+			$resources[$group]	=& self::getResource (array ($group, self::getGroupSetting ($group, 'default')));
 			
 		}
 		
@@ -289,9 +437,9 @@ class Sonic
 	public static function &getSelectedResource ($group)
 	{
 		
-		// If the resource is not set
+		// If the resource group is not set
 		
-		if (!isset (self::$resources[$group]))
+		if (!isset (self::$resources[$group]) || !self::getGroupSetting ($group, 'default'))
 		{
 			
 			// Return FALSE
@@ -303,7 +451,7 @@ class Sonic
 		
 		// Return resource reference
 		
-		return self::getResource (array ($group, self::$selectedResources[$group]));
+		return self::getResource (array ($group, self::getGroupSetting ($group, 'default')));
 		
 	}
 	
@@ -331,12 +479,91 @@ class Sonic
 		
 		// Set selected resource
 		
-		self::$selectedResources[$group]	= $name;
+		self::setGroupSetting ($group, 'default', $name);
 		
 		// Return TRUE
 		
 		return TRUE;
 		
+	}
+	
+	
+	/**
+	 * Remove the default selected resource for a group
+	 * @param string $group Resource group
+	 * @return void
+	 */
+	
+	public static function removeDefault ($group)
+	{
+		self::setGroupSetting ($group, 'default', FALSE);
+	}
+	
+	
+	/**
+	 * Return a random group resource name
+	 * @param string $group Resource group
+	 * @return string|boolean
+	 */
+	
+	public static function selectRandomResource ($group)
+	{
+		
+		// If the resource group is not set
+		
+		if (!isset (self::$resources[$group]))
+		{
+			
+			// Return FALSE
+			
+			$bln = FALSE;
+			return $bln;
+			
+		}
+		
+		// Return random resource name
+		
+		return array_rand (self::$resources[$group]);
+		
+	}
+	
+	
+	/**
+	 * Return number of resource in a group
+	 * @param string $group Resource group
+	 * @return integer
+	 */
+	
+	public static function countResourceGroup ($group)
+	{
+		return isset (self::$resources[$group])? count (self::$resources[$group]) : 0;
+	}
+	
+	
+	/**
+	 * Set group setting
+	 * @param string $group Resource group
+	 * @param string $setting Setting name
+	 * @param mixed $val Setting value
+	 * @return void
+	 */
+	
+	public static function setGroupSetting ($group, $setting, $val)
+	{
+		self::$resourceSettings[$group][$setting]	= $val;
+	}
+	
+	
+	/**
+	 * Return group setting or FALSE if not set
+	 * @param string $group Resource group
+	 * @param string $setting Setting name
+	 * @return mixed|FALSE
+	 */
+	
+	public static function getGroupSetting ($group, $setting)
+	{
+		return isset (self::$resourceSettings[$group][$setting])? self::$resourceSettings[$group][$setting] : FALSE;
 	}
 	
 	

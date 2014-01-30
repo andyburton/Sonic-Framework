@@ -68,7 +68,7 @@ abstract class Session extends \Sonic\Controller
 			{
 				
 				case 'invalid_session':
-//					new \Sonic\Message ('error', 'Please login to continue');
+					new \Sonic\Message ('error', 'Please login to continue');
 					break;
 				
 				case 'user_read_error':

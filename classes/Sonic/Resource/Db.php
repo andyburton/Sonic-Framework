@@ -421,7 +421,7 @@ class Db extends \PDO
 	
 	/**
 	 * Bind query values from where array
-	 * @param resource $query PDO query
+	 * @param \PDOStatement $query PDO query
 	 * @param array $arrWHERE Where clause array
 	 * @return void
 	 */
@@ -475,6 +475,41 @@ class Db extends \PDO
 
 		}
 
+	}
+	
+	
+	/**
+	 * Bind an array of parameters to the query
+	 * @param \PDOStatement $query PDO query
+	 * @param array $params Parameters to bind
+	 * @return boolean
+	 */
+	
+	public function bindValues (&$query, $params)
+	{
+		
+		foreach ($params as $key => $value)
+		{
+			
+			if (is_array ($value))
+			{
+				if (!$query->bindValue ($key, $value[0], $value[1]))
+				{
+					return FALSE;
+				}
+			}
+			else
+			{
+				if (!$query->bindValue ($key, $value))
+				{
+					return FALSE;
+				}
+			}
+			
+		}
+		
+		return TRUE;
+		
 	}
 
 	
@@ -634,12 +669,12 @@ class Db extends \PDO
 		{
 			foreach ($arrParams['limit'] as &$val)
 			{
-				$val = intval ($val);
+				$val = (int) $val;
 			}
 		}
 		else
 		{
-			$arrParams['limit']	= intval ($arrParams['limit']);
+			$arrParams['limit']	= (int) $arrParams['limit'];
 		}
 		
 		$strLIMIT	= $this->genClause ('LIMIT', $arrParams['limit']);
@@ -734,7 +769,7 @@ class Db extends \PDO
 	/**
 	 * Returns a PDO query resource ready for execution
 	 * @param array $arrParams	Array of clauses to add to the SQL
-	 * @return object
+	 * @return \PDOStatement
 	 */
 	
 	public function genQuery ($arrParams = array ())
@@ -743,7 +778,7 @@ class Db extends \PDO
 		// Generate sql query
 		
 		$strSQL	= $this->genSQL ($arrParams);
-
+		
 		// prepare database query
 		
 		$query = $this->prepare ($strSQL);
@@ -769,6 +804,18 @@ class Db extends \PDO
 			$this->genBindValues ($query, $arrParams['having']);
 
 		}
+		
+		// If there are some parameters to bind
+		
+		if (isset ($arrParams['bind']) && is_array ($arrParams['bind']))
+		{
+
+			if (!$this->bindValues ($query, $arrParams['bind']))
+			{
+				return FALSE;
+			}
+
+		}
 
 		// Return query
 		
@@ -777,79 +824,122 @@ class Db extends \PDO
 	}
 
 
+	/**
+	* Returns a PDO query resource ready for execution for an SQL union
+	* @param array $arrParam SQL Parameter Array
+	* @param array $arrParam SQL Parameter Array
+	* ... etc
+	* @return \PDOStatement
+	*/
+
+	public function genUnionQuery  ()
+	{
+
+		$sql	= $this->genUnionSQL (func_get_args (), 'UNION ALL');
+
+		// Prepare database query
+
+		$query	= $this->prepare ($sql);
+		
+		// Bind values
+		
+		$this->genUnionBindValues ($query, func_get_args ());
+
+		// Return query
+
+		return $query;
+
+	}
+
 
 	/**
 	* Returns a PDO query resource ready for execution for an SQL union
 	* @param array $arrParam SQL Parameter Array
 	* @param array $arrParam SQL Parameter Array
 	* ... etc
-	* @return object
+	* @return \PDOStatement
 	*/
 
-	public function genUnionQuery  ()
+	public function genDistinctUnionQuery  ()
 	{
 
+		$sql	= $this->genUnionSQL (func_get_args (), 'UNION DISTINCT');
+
+		// Prepare database query
+
+		$query	= $this->prepare ($sql);
+		
+		// Bind values
+		
+		$this->genUnionBindValues ($query, func_get_args ());
+
+		// Return query
+
+		return $query;
+
+	}
+	
+	/*
+	 * Generate SQL union query from arrays of query params
+	 * @param array $args Array of query param arrays
+	 * @param string $union Union join SQL, default UNION
+	 * @return string
+	 */
+	
+	public function genUnionSQL ($args, $union = 'UNION')
+	{
+		
 		// Set SQL string
 
-		$strSQL	= '';
+		$sql	= '';
 
 		// Foreach argument
 
-		foreach (func_get_args () as $intKey => $arrArg)
+		foreach ($args as $key => $arg)
 		{
 
 			// If not the first argument add UNION
 
-			if ($intKey > 0)
+			if ($key > 0)
 			{
-
-				$strSQL	.= ' UNION ';
-
+				$sql	.= ' ' . $union . ' ';
 			}
 
 			// Generate SQL and append to query
 
-			$strSQL	.= $this->genSQL ($arrArg);
+			$sql	.= $this->genSQL ($arg);
 
 		}
-
-		// Prepare database query
-
-		$objQuery	= $this->prepare ($strSQL);
-
-		// Foreach argument
-
-		foreach (func_get_args () as $intKey => $arrArg)
+		
+		return $sql;
+		
+	}
+	
+	
+	/**
+	 * Bind values to a union query
+	 * @param \PDOStatement $query PDO query
+	 * @param array $args Array of parameters
+	 * @return \PDOStatement
+	 */
+	
+	public function genUnionBindValues (&$query, $args)
+	{
+		
+		foreach ($args as $key => $arg)
 		{
 
-			// If there are WHERE clauses
-
-			if (isset ($arrArg['where']) && is_array ($arrArg['where']))
+			if (isset ($arg['where']) && is_array ($arg['where']))
 			{
-
-				// Bind
-
-				$this->genBindValues ($objQuery, $arrArg['where']);
-
+				$this->genBindValues ($query, $arg['where']);
 			}
-
-			// If there are HAVING clauses
-
-			if (isset ($arrArg['having']) && is_array ($arrArg['having']))
+			
+			if (isset ($arg['having']) && is_array ($arg['having']))
 			{
-
-				// Bind
-
-				$this->genBindValues ($objQuery, $arrArg['having']);
-
+				$this->genBindValues ($query, $arg['having']);
 			}
 
 		}
-
-		// Return query
-
-		return $objQuery;
-
 	}
 
 	
@@ -935,11 +1025,11 @@ class Db extends \PDO
 
 		$query->execute ();
 		
-		// If there is only 1 select param and it is not *
+		// If there is only 1 select param and it does not have *
 		
 		$arrSelect	= is_array ($arrParams['select'])? $arrParams['select'] : explode (',', $arrParams['select']);
 		
-		if (count ($arrSelect) === 1 && $arrSelect[0] !== '*')
+		if (count ($arrSelect) === 1 && strpos ($arrSelect[0], '*') === FALSE)
 		{
 
 			// Set fetch mode to return only the first column of each row
@@ -1008,20 +1098,11 @@ class Db extends \PDO
 		
 		$query	= $this->prepare ($strSQL);
 		
-		// Bind parameters
+		// Bind values
 		
-		foreach ($arrBindParams as $key => $value)
+		if (!$this->bindValues ($query, $arrBindParams))
 		{
-			
-			if (is_array ($value))
-			{
-				$query->bindValue ($key, $value[0], $value[1]);
-			}
-			else
-			{
-				$query->bindValue ($key, $value);
-			}
-			
+			return FALSE;
 		}
 
 		// Return query execution status
@@ -1045,20 +1126,11 @@ class Db extends \PDO
 
 		$query = $this->prepare ($strSQL);
 
-		// Bind parameters
-
-		foreach ($arrBindParams as $key => $value)
+		// Bind values
+		
+		if (!$this->bindValues ($query, $arrBindParams))
 		{
-
-			if (is_array ($value))
-			{
-				$query->bindValue ($key, $value[0], $value[1]);
-			}
-			else
-			{
-				$query->bindValue ($key, $value);
-			}
-
+			return FALSE;
 		}
 
 		// query execution status

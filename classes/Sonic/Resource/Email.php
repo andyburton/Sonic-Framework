@@ -1482,7 +1482,7 @@ class Email
 
     private function sendUsingPHP ()
     {
-
+		
 		// Construct Headers
 
 		$headers	= $this->constructHeaders ();
@@ -1566,7 +1566,7 @@ class Email
 				
 				if (!mail ($recipientTo, $this->_subject, $emailMessage, $emailHeaders))
 				{
-
+					
 					// Add error and return FALSE
 
 					new \Sonic\Message ('error', 'Cannot send message to: ' . $recipient['email']);
@@ -1577,8 +1577,10 @@ class Email
 
 				}
 
-                                if (is_callable($this->_callbackMethod)) 
-                                        call_user_func($this->_callbackMethod, $this->_subject, $recipientTo, $this->_fromAddress, $emailMessage);
+				if (is_callable($this->_callbackMethod))
+				{
+					call_user_func ($this->_callbackMethod, $this->_subject, $recipientTo, $this->_fromAddress, $emailMessage);
+				}
 
                                 
 				// If we're logging the email

@@ -40,7 +40,7 @@ abstract class Session extends \Sonic\Controller\JSON
 		
 		// Only call the method if the user is authenticated
 		
-		if ($this->checkAuthenticated ())
+		if ($this->checkAuthenticated ($this->getArg ('session_id')))
 		{
 			parent::callAction ();
 		}
@@ -50,15 +50,16 @@ abstract class Session extends \Sonic\Controller\JSON
 	
 	/**
 	 * Check the user is authenticated
+	 * @param string $session_id Session ID
 	 * @return boolean
 	 */
 	
-	protected function checkAuthenticated ()
+	protected function checkAuthenticated ($session_id = FALSE)
 	{
 		
 		// Create user
 		
-		$this->user	= new \Sonic\Model\User;
+		$this->user	= new \Sonic\Model\User ($session_id);
 		
 		// Check authenticated
 		
@@ -66,7 +67,9 @@ abstract class Session extends \Sonic\Controller\JSON
 		
 		if ($auth !== TRUE)
 		{
-			return $this->error ($auth);
+			$this->error ($auth);
+			$this->view->response['auth_fail']	= TRUE;
+			return;
 		}
 		
 		// Return

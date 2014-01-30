@@ -24,15 +24,15 @@ class Smarty extends \Smarty
 		
 		parent::__construct ();
 		
-		$this->setTemplateDir (SMARTY_TEMPLATE_DIR);
-		$this->setCacheDir (SMARTY_CACHE_DIR);
-		$this->setCompileDir (SMARTY_COMPILE_DIR);
-		$this->setConfigDir (SMARTY_CONFIG_DIR);
-		$this->addPluginsDir (SMARTY_PLUGINS_DIR);
+		$this->setTemplateDir (SONIC_SMARTY_TEMPLATE_DIR);
+		$this->setCacheDir (SONIC_SMARTY_CACHE_DIR);
+		$this->setCompileDir (SONIC_SMARTY_COMPILE_DIR);
+		$this->setConfigDir (SONIC_SMARTY_CONFIG_DIR);
+		$this->addPluginsDir (SONIC_SMARTY_PLUGINS_DIR);
 		
-		if (defined ('SMARTY_ERROR_REPORTING'))
+		if (defined ('SONIC_SMARTY_ERROR_REPORTING'))
 		{	
-			$this->error_reporting	= SMARTY_ERROR_REPORTING;
+			$this->error_reporting	= SONIC_SMARTY_ERROR_REPORTING;
 		}
 		
 	}

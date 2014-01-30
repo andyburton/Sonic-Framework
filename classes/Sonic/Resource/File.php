@@ -120,7 +120,10 @@ class File
 		
 		// Set path/name variables
 		
-		$this->path	= $path;
+		if (!$this->setPath ($path))
+		{
+			return FALSE;
+		}
 		
 		if ($name)
 		{
@@ -132,7 +135,7 @@ class File
 			$this->extension	= $extension;
 		}
 		
-		$this->filename	= $this->name . $this->extension;
+		$this->filename	= $this->name . '.' . $this->extension;
 		
 		// Get tmp path
 		
@@ -164,6 +167,74 @@ class File
 		
 	}
 	
+	
+	/**
+	 * Return the filename including extension
+	 * @return string
+	 */
+	
+	public function getFilename ()
+	{
+		return $this->filename;
+	}
+	
+	
+	/**
+	 * Return the filename excluding the extension
+	 * @return string
+	 */
+	
+	public function getName ()
+	{
+		return $this->name;
+	}
+	
+	
+	/**
+	 * Return the file absolute directory path
+	 * @return string
+	 */
+	
+	public function getPath ()
+	{
+		return $this->path;
+	}
+	
+	
+	/**
+	 * Return the filename extension
+	 * @return string
+	 */
+	
+	public function getExtension ()
+	{
+		return $this->extension;
+	}
+	
+	
+	/**
+	 * Set absolute directory path
+	 * @param string $path Directory path
+	 * @return boolean
+	 */
+	
+	public function setPath ($path)
+	{
+		
+		if (!is_dir ($path) && !mkdir ($path, 0755, TRUE))
+		{
+			return FALSE;
+		}
+		
+		if (!is_writable ($path))
+		{
+			return FALSE;
+		}
+		
+		$this->path	= $path;
+		return TRUE;
+		
+	}
 	
 	
 	/**

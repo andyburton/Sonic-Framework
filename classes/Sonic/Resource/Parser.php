@@ -173,29 +173,47 @@ class Parser
 			
 			foreach ($criteria['charset'] as $charsetName)
 			{
-				$charset	.= self::_getCharset ($charsetName);
+				
+				$newCharset	= self::_getCharset ($charsetName);
+				
+				if ($newCharset === FALSE && !$charset)
+				{
+					$charset	= FALSE;
+				}
+				else
+				{
+					$charset	.= $newCharset;
+				}
+				
 			}
 			
-			// Get value length
+			// If there is no charset then ignore
 			
-			$length		= strlen ($val);
-			
-			// Cast to string
-
-			settype ($val, 'string');
-			
-			// For each character in the value
-
-			for ($i = 0; $i < $length; $i++)
+			if ($charset !== FALSE)
 			{
 
-				// If the character is not in the charset return FALSE
+				// Get value length
 
-				if (strpos ($charset, $val[$i]) === FALSE)
+				$length		= strlen ($val);
+
+				// Cast to string
+
+				settype ($val, 'string');
+
+				// For each character in the value
+
+				for ($i = 0; $i < $length; $i++)
 				{
-					throw new Parser\Exception ('Invalid character `' . $val[$i] . '` in ' . $name);
-				}
 
+					// If the character is not in the charset return FALSE
+
+					if (strpos ($charset, $val[$i]) === FALSE)
+					{
+						throw new Parser\Exception ('Invalid character `' . $val[$i] . '` in ' . $name);
+					}
+
+				}
+				
 			}
 			
 		}
@@ -793,6 +811,37 @@ class Parser
 		{
 			return TRUE;
 		}
+		
+	}
+	
+	
+	/**
+	 * Return a postcode area from a UK postcode
+	 * e.g. MK18 3DS = MK18
+	 * @param string $postcode UK Postcode
+	 * @return string
+	 */
+	
+	public static function _postcodeArea ($postcode)
+	{
+		
+		$area	= strtoupper (str_replace (' ', '', trim ($postcode)));
+		$length	= strlen ($area);
+
+		if ($length == 5)
+		{
+			$area	= substr ($area, 0, 2);
+		}
+		else if ($length == 6)
+		{
+			$area	= substr ($area, 0, 3);
+		}
+		else if ($length >= 7)
+		{
+			$area	= substr ($area, 0, 4);
+		}
+		
+		return $area;
 		
 	}
 	

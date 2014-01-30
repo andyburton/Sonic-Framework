@@ -57,16 +57,24 @@ abstract class JSON extends \Sonic\Controller
 	
 	protected function success ($response = array ())
 	{
+		
+		if (!is_array ($response))
+		{
+			$response	= array ($response);
+		}
+		
 		$this->view->response				= $response;
 		$this->view->response['success']	= 1;
 		$this->view->response['time']		= time ();
+		
 		return TRUE;
+		
 	}
 	
 	
 	/**
 	 * Set error response
-	 * @param \Sonic\DM\Error|integer|string $message Error message object, error code or message string
+	 * @param \Sonic\Controller\Error|integer|string $message Error message object, error code or message string
 	 * @param integer $code Error code, only used if message is a string
 	 * @return FALSE
 	 */

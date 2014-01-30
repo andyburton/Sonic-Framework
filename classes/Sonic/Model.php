@@ -184,7 +184,7 @@ class Model
 	 * @var boolean 
 	 */
 	
-	public $debug			= FALSE; 
+	public $debug					= FALSE; 
 	
 	
 	/**
@@ -203,36 +203,24 @@ class Model
 
 		$this->resources	= Sonic::getSelectedResources ();
 		
+		// If the object variable exists and isnt set then assign it
+		
+		foreach (array_keys ($this->resources) as $name)
+		{
+			if (isset ($this->$name) && $this->$name === FALSE)
+			{
+				$this->$name	=& $this->resources[$name];
+			}
+		}
+		
 		// If there are any class defaults set them
 		
 		foreach (static::$defaultResources as $name => $resource)
 		{
-			
-			$this->resources[$name]	=& Sonic::getResource ($resource);
-			
-			if (!$this->resources[$name])
+			if (!$this->setResource ($name, $resource))
 			{
 				throw new Exception ('Framework resource `' . print_r ($resource, TRUE) . '` does not exist for ' . get_called_class ());
 			}
-			
-		}
-		
-		// For each resource
-
-		foreach (array_keys ($this->resources) as $name)
-		{
-			
-			// If the object variable exists and isnt set
-
-			if (isset ($this->$name) && $this->$name === FALSE)
-			{
-
-				// Assign to object variable
-				
-				$this->$name	=& $this->resources[$name];
-				
-			}
-
 		}
 		
 	}
@@ -380,7 +368,7 @@ class Model
 		return $this->attributeValues[$name];
 			
 	}
-
+	
 	
 	/**
 	 * Set an attribute value if allowed by attribute setter
@@ -566,6 +554,26 @@ class Model
 	
 	
 	/**
+	 * Reset the primary key to default or set to a specific value
+	 * @param mixed $val Value
+	 */
+	
+	public function resetPK ($val = FALSE)
+	{
+		
+		if ($val === FALSE)
+		{
+			$this->reset (static::$pk);
+		}
+		else
+		{
+			$this->attributeValues[static::$pk] = $val;
+		}
+		
+	}
+	
+	
+	/**
 	 * Cast a value for an attribute datatype 
 	 * @param string $name Attribute name
 	 * @param mixed $val Value to cast
@@ -619,19 +627,27 @@ class Model
 	/**
 	 * Create object in the database
 	 * @param array $exclude Attributes not to set
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function create ($exclude = array ())
+	public function create ($exclude = array (), &$db = FALSE)
 	{
 		
 		// Get columns and values
 		
 		$create	= $this->createColumnsAndValues ($exclude);
 		
+		// Get database master for write
+		
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
+		
 		// Prepare query
-
-		$query	= $this->db->prepare ('
+		
+		$query	= $db->prepare ('
 		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
 		VALUES ( ' . $create['values'] . ')
 		');
@@ -651,16 +667,16 @@ class Model
 
 		if (!$this->attributeHasValue (static::$pk) || !$this->iget (static::$pk))
 		{
-			$this->iset (static::$pk, $this->db->lastInsertID ());
+			$this->iset (static::$pk, $db->lastInsertID ());
 		}
 		
 		// Changelog
 		
 		if ($this->changelog ('create'))
 		{
-			$log = $this->getResource ('changelog');
-			$log->hookTransactions ($this->db);
-			$log::_Log ('create', static::_Read ($this->iget (static::$pk)));
+			$log =& $this->getResource ('changelog');
+			$log->hookTransactions ($db);
+			$log::_Log ('create', static::_Read ($this->iget (static::$pk), $db));
 		}
 
 		// return TRUE
@@ -674,10 +690,11 @@ class Model
 	 * Create or update an object in the database if it already exists
 	 * @param array $update Values to update
 	 * @param array $exclude Attributes not to set in create
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function createOrUpdate ($update, $exclude = array ())
+	public function createOrUpdate ($update, $exclude = array (), &$db = FALSE)
 	{
 		
 		// Get columns and values
@@ -706,9 +723,16 @@ class Model
 		
 		$updateVals	= substr ($updateVals, 2);
 		
+		// Get database master for write
+		
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
+		
 		// Prepare query
 		
-		$query	= $this->db->prepare ('
+		$query	= $db->prepare ('
 		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
 		VALUES ( ' . $create['values'] . ') 
 		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(' . static::$pk . '), ' . $updateVals . '
@@ -742,7 +766,7 @@ class Model
 
 		if (!$this->attributeHasValue (static::$pk) || !$this->iget (static::$pk))
 		{
-			$this->iset (static::$pk, $this->db->lastInsertID ());
+			$this->iset (static::$pk, $db->lastInsertID ());
 		}
 		
 		// return TRUE
@@ -986,25 +1010,33 @@ class Model
 	/**
 	 * Read an object from the database, populating the object attributes
 	 * @param mixed $pkValue Primary key value
+	 * @param \PDO $db Database connection to use, default to slave resource
 	 * @return boolean
 	 */
 	
-	public function read ($pkValue = FALSE)
+	public function read ($pkValue = FALSE, &$db = FALSE)
 	{
 		
 		try
 		{
-
+			
 			// If there is a key value passed set it
 
 			if ($pkValue !== FALSE)
 			{
 				$this->iset (static::$pk, $pkValue);
 			}
+			
+			// Get database slave for read
+
+			if ($db === FALSE)
+			{
+				$db	=& $this->getDbSlave ();
+			}
 
 			// Prepare query
 
-			$query = $this->db->prepare ('
+			$query = $db->prepare ('
 			SELECT * FROM ' . static::$dbTable . '
 			WHERE ' . static::$pk . ' = :pk
 			');
@@ -1065,31 +1097,37 @@ class Model
 	
 	public function readAttribute ($name)
 	{
-		
 		$this->iset ($name, $this->getValue (array (
 			'select'	=> $name,
 			'where'		=> array (array (static::$pk, $this->iget (static::$pk)))
 		)));
-		
 	}
 	
 	
 	/**
 	 * Update an object in the database
 	 * @param array $exclude Attributes not to update
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function update ($exclude = array ())
+	public function update ($exclude = array (), &$db = FALSE)
 	{
+		
+		// Get database master for write
 
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
+		
 		// Changelog
 		
 		$old = FALSE;
 		
 		if ($this->changelog ('update'))
 		{
-			$old = static::_Read ($this->get (static::$pk));
+			$old = static::_Read ($this->get (static::$pk), $db);
 		}
 		
 		// Exclude the primary key
@@ -1112,9 +1150,17 @@ class Model
 				continue;
 			}
 			
-			// If the attribute is not set
+			// If the attribute has derefresh enabled the refresh value to default for the update
 			
-			if (!$this->attributeIsset ($name))
+			if (isset ($attribute['deupdate']) && $attribute['deupdate'])
+			{
+				$this->reset ($name);
+			}
+			
+			// Else if the attribute is not set or is creation only
+			
+			else if (!$this->attributeIsset ($name) || 
+				(isset ($attribute['creation']) && $attribute['creation']))
 			{
 				
 				// Exclude it and move on
@@ -1136,7 +1182,7 @@ class Model
 		
 		// Prepare query
 		
-		$query = $this->db->prepare ('
+		$query = $db->prepare ('
 		UPDATE ' . static::$dbTable . '
 		SET ' . $values . '
 		WHERE ' . static::$pk . ' = :pk
@@ -1161,8 +1207,8 @@ class Model
 		
 		if ($old)
 		{
-			$log	= $this->getResource ('changelog');
-			$log->hookTransactions ($this->db);
+			$log	=& $this->getResource ('changelog');
+			$log->hookTransactions ($db);
 			$log::_Log ('update', $old, $this);
 		}
 
@@ -1177,11 +1223,19 @@ class Model
 	 * Set and update a single object attribute in the database
 	 * @param string $name Attribute name
 	 * @param string $value Attribute value
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	protected function updateAttribute ($name, $value)
+	public function updateAttribute ($name, $value, &$db = FALSE)
 	{
+		
+		// Get database master for write
+
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
 		
 		// Changelog
 		
@@ -1189,14 +1243,14 @@ class Model
 		
 		if ($this->changelog ('update'))
 		{
-			$old = static::_Read ($this->iget (static::$pk));
+			$old = static::_Read ($this->iget (static::$pk), $db);
 		}
 		
 		$this->iset ($name, $value);
 		
 		// Prepare query
 		
-		$query = $this->db->prepare ('
+		$query = $db->prepare ('
 		UPDATE ' . static::$dbTable . '
 		SET ' . $name . ' = :val 
 		WHERE ' . static::$pk . ' = :pk
@@ -1224,8 +1278,8 @@ class Model
 			$exclude = $this->toArray ();
 			unset ($exclude[$name]);
 			
-			$log = $this->getResource ('changelog');
-			$log->hookTransactions ($this->db);
+			$log =& $this->getResource ('changelog');
+			$log->hookTransactions ($db);
 			$log::_Log ('update', $old, $this, array_keys ($exclude));
 			
 		}
@@ -1239,17 +1293,22 @@ class Model
 	
 	/**
 	 * Set and update a single object attribute in the database
+	 * @param integer $pk Primary key
 	 * @param string $name Attribute name
 	 * @param string $value Attribute value
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public static function _setValue ($pk, $name, $value)
+	public static function _setValue ($pk, $name, $value, &$db = FALSE)
 	{
 		
-		// Get database
-		
-		$db	= self::_getResource ('db');
+		// Get database master for write
+
+		if ($db === FALSE)
+		{
+			$db	=& self::_getDbMaster ();
+		}
 		
 		if (!($db instanceof \PDO))
 		{
@@ -1279,11 +1338,19 @@ class Model
 	/**
 	 * Delete an object in the database
 	 * @param array|integer $params Primary key value or parameter array
+	 * @param \PDO $db Database connection to use, default to master resource
 	 * @return boolean
 	 */
 	
-	public function delete ($params = FALSE)
+	public function delete ($params = FALSE, &$db = FALSE)
 	{
+		
+		// Get database master for write
+
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
 		
 		// If there is no key value passed set to the object id
 		
@@ -1319,25 +1386,23 @@ class Model
 		
 		$arrRemove	= FALSE;
 		
+		// Get all objects being removed
+		
 		if ($this->changelog ('delete'))
 		{
-			
-			// Get all objects being removed
-			
-			$arrRemove	= static::_getObjects (array ('where' => $params['where']));
-			
+			$arrRemove	= static::_getObjects (array ('where' => $params['where']), FALSE, $db);
 		}
 		
 		// Prepare query
-
-		$query = $this->db->prepare ('
-		DELETE FROM ' . static::$dbTable . ' 
-		' . $this->db->genClause ('WHERE', $this->db->genWHERE ($params['where'])) . '
-		');
+		
+		$query = $db->prepare ('
+			DELETE FROM ' . static::$dbTable . ' 
+			' . $db->genClause ('WHERE', $db->genWHERE ($params['where']))
+		);
 		
 		// Bind values
 		
-		$this->db->genBindValues ($query, $params['where']);
+		$db->genBindValues ($query, $params['where']);
 		
 		// Execute
 
@@ -1348,8 +1413,8 @@ class Model
 		if ($arrRemove)
 		{
 			
-			$log = $this->getResource ('changelog');
-			$log->hookTransactions ($this->db);
+			$log =& $this->getResource ('changelog');
+			$log->hookTransactions ($db);
 			
 			// Log all removed entries
 			
@@ -1370,20 +1435,31 @@ class Model
 	/**
 	 * Hook any database queries into another database transaction
 	 * so that the queries are commited and rolled back at the same point
-	 * @param \Sonic\Resource\Db $db Database to hook onto
+	 * @param \Sonic\Resource\Db $parent Parent database
+	 *   This is the database resource that is hooked and passes transaction state to the child database
+	 * @param \Sonic\Resource\Db $child Child database
+	 *   This is the datababase resource that hooks onto the parent and has its transaction state copied from the parent
+	 *   Defaults to object 'db' connection resource
 	 */
 	
-	public function hookTransactions (\Sonic\Resource\Db &$db)
+	public function hookTransactions (\Sonic\Resource\Db &$parent, \Sonic\Resource\Db &$child = NULL)
 	{
+		
+		// Use default object database resource if none is specified
+		
+		if (!$child)
+		{
+			$child	=& $this->getResource ('db');
+		}
 		
 		/**
 		 * We only want to create the hook and begin a transaction on the database
 		 * if a transaction has already begun on the database we're hooking onto.
 		 */
 		
-		if ($db->getTransactionCount () > 0 && $db->addTransactionHook ($this->db))
+		if ($parent->getTransactionCount () > 0 && $parent->addTransactionHook ($child))
 		{
-			$this->db->beginTransaction ();
+			$child->beginTransaction ();
 		}
 		
 	}
@@ -1622,15 +1698,25 @@ class Model
 	 * Attribute names need to be in the format ClassName_AttributeName in $_POST
 	 * @param boolean $validate Validate attributes during set
 	 * @param array $required Required attributes
+	 * @param array $valid Valid attributes to set
 	 * @return void
 	 */
 	
-	public function fromPost ($validate = TRUE, $required = array ())
+	public function fromPost ($validate = TRUE, $required = array (), $valid = array ())
 	{
 		
-		// Set attributes
+		// By default allow all attributes except pk
 		
-		$this->fromArray ($_POST, TRUE, $validate, $required);
+		if (!$valid)
+		{
+			$valid	= array_keys (static::$attributes);
+			if (($key = array_search (static::$pk, $valid)) !== FALSE)
+			{
+				unset ($valid[$key]);
+			}
+		}
+		
+		$this->fromArray ($_POST, TRUE, $validate, $required, $valid);
 		
 	}
 	
@@ -1680,7 +1766,7 @@ class Model
 		}
 		
 		// If we have an array of valid attributes to set
-		// Remove any that isn't valid
+		// Remove any that arent valid
 		
 		if ($valid)
 		{
@@ -1701,7 +1787,7 @@ class Model
 		
 		try
 		{
-
+			
 			foreach ($attributes as $name => $val)
 			{
 				
@@ -1760,10 +1846,11 @@ class Model
 	 *   e.g. If Sonic\Model\B had attributes c1 and c2, both related to Sonic\Model\C, the example above would use the first by default.
 	 *   To specifically set c2 you would pass $fork = array ('Sonic\Model\B' => 'c2');
 	 *   Multiple classes and attributes can be listed in fork to decide which attribute to use for each class.
+	 * @param array $params Query parameter array
 	 * @return object|boolean
 	 */
 	
-	public function getRelated ($class, $fork = array ())
+	public function getRelated ($class, $fork = array (), $params = array ())
 	{
 		
 		// Get the tree paths to the required class
@@ -1783,7 +1870,7 @@ class Model
 		
 		// Return the related object
 		
-		return self::_getRelation ($this, $path);
+		return self::_getRelation ($this, $path, $params);
 		
 	}
 	
@@ -1795,13 +1882,18 @@ class Model
 	 *   This will create an object attribute called 'children' on all objects
 	 * @param boolean $index Return indexed child array rather than object array
 	 * @param string $key Attribute to use as array key
+	 * @param array $params Query parameter array
 	 * @return array|boolean 
 	 */
 	
-	public function getChildren ($class, $recursive = FALSE, $index = FALSE, $key = FALSE)
+	public function getChildren ($class, $recursive = FALSE, $index = FALSE, $key = FALSE, $params = array ())
 	{
 		
-		$children	= self::_getChildren ($class, $this->iget (self::$pk), $recursive, $key);
+		// Get children
+		
+		$children	= self::_getChildren ($class, $this->iget (self::$pk), $recursive, $key, $params);
+		
+		// If we want the indexes
 		
 		if ($index)
 		{
@@ -1817,11 +1909,19 @@ class Model
 	 * Return a single row
 	 * @param array $params Parameter array
 	 * @param int $fetchMode PDO fetch mode, default to assoc
+	 * @param \PDO $db Database connection to use, default to slave resource
 	 * @return mixed
 	 */
 	
-	public function getValue ($params, $fetchMode = \PDO::FETCH_ASSOC)
+	public function getValue ($params, $fetchMode = \PDO::FETCH_ASSOC, &$db = FALSE)
 	{
+		
+		// Get database slave for read
+
+		if ($db === FALSE)
+		{
+			$db	=& self::_getDbSlave ();
+		}
 		
 		// Set table
 
@@ -1829,7 +1929,7 @@ class Model
 		
 		// Return value
 
-		return $this->db->getValue ($params, $fetchMode);
+		return $db->getValue ($params, $fetchMode);
 
 	}
 	
@@ -1837,11 +1937,19 @@ class Model
 	/**
 	 * Return all rows
 	 * @param array $params Parameter array
+	 * @param \PDO $db Database connection to use, default to slave resource
 	 * @return mixed
 	 */
 	
-	public function getValues ($params)
+	public function getValues ($params, &$db = FALSE)
 	{
+		
+		// Get database slave for read
+
+		if ($db === FALSE)
+		{
+			$db	=& self::_getDbSlave ();
+		}
 		
 		// Set table
 
@@ -1849,8 +1957,86 @@ class Model
 		
 		// Return value
 
-		return $this->db->getValues ($params);
+		return $db->getValues ($params);
 
+	}
+	
+	
+	/**
+	 * Return database master
+	 * @return \PDO
+	 */
+	
+	public function &getDbMaster ()
+	{
+		
+		// Get the default master
+		
+		$obj	=& $this->getResource ('db-master');
+		
+		// Failing that try to get a random master
+		
+		if (!$obj)
+		{
+			
+			$obj	=& self::_getRandomDbResource ('db-master');
+			
+			// Default to database resource if no valid master
+		
+			if (!$obj)
+			{
+				$obj =& $this->getResource ('db');
+			}
+			
+			// Set object master to use in the future
+
+			$this->setResourceObj ('db-master', $obj);
+			
+		}
+		
+		// Return database connection
+		
+		return $obj;
+		
+	}
+	
+	
+	/**
+	 * Return database slave
+	 * @return \PDO
+	 */
+	
+	public function &getDbSlave ()
+	{
+		
+		// Get the default slave
+		
+		$obj	=& $this->getResource ('db-slave');
+		
+		// Failing that try to get a random slave
+		
+		if (!$obj)
+		{
+			
+			$obj	=& self::_getRandomDbResource ('db-slave');
+			
+			// Default to database resource if no valid slave
+		
+			if (!$obj)
+			{
+				$obj =& $this->getResource ('db');
+			}
+			
+			// Set object slave to use in the future
+
+			$this->setResourceObj ('db-slave', $obj);
+			
+		}
+		
+		// Return database connection
+		
+		return $obj;
+		
 	}
 	
 	
@@ -1894,7 +2080,7 @@ class Model
 		
 		// Get the resource
 		
-		$obj	= Sonic::getResource ($resource);
+		$obj	=& Sonic::getResource ($resource);
 		
 		if (!$obj)
 		{
@@ -1919,12 +2105,12 @@ class Model
 	 * @return void
 	 */
 	
-	public function setResourceObj ($name, $resource)
+	public function setResourceObj ($name, &$resource)
 	{
 		
 		// Set the resource
 		
-		$this->resources[$name]	= $resource;
+		$this->resources[$name]	=& $resource;
 		
 		// If the object variable exists 
 		
@@ -1934,7 +2120,7 @@ class Model
 			// Assign to object variable
 
 			$this->$name	=& $this->resources[$name];
-
+			
 		}
 		
 	}
@@ -2103,6 +2289,18 @@ class Model
 		
 	}
 	
+	
+	/**
+	 * Return the object primary key
+	 * @return integer
+	 */
+	
+	public function getPK ()
+	{
+		return $this->attributeIsset (static::$pk)? $this->attributeValues[static::$pk] : FALSE;
+	}
+	
+	
 	/**
 	 * Return the object class namespace
 	 * @return string
@@ -2150,13 +2348,25 @@ class Model
 	
 	
 	/**
+	 * Return the complete namespace/class path of the static class being called
+	 * @return string
+	 */
+	
+	public function getCalledClass ()
+	{
+		return get_called_class ();
+	}
+	
+	
+	/**
 	 * Create a new object instance and read it from the database, populating the object attributes
 	 * @param mixed $params Object to read.
 	 *   This can be an instance ID or a parameter array.
+	 * @param \PDO $db Database connection to use
 	 * @return \Sonic\Model
 	 */
 	
-	public static function _read ($params)
+	public static function _read ($params, &$db = FALSE)
 	{
 		
 		// Create the object
@@ -2174,7 +2384,7 @@ class Model
 
 			// Get data
 			
-			$row	= static::_getValue ($params);
+			$row	= static::_getValue ($params, \PDO::FETCH_ASSOC, $db);
 
 			// If no data was returned return FALSE
 
@@ -2204,7 +2414,7 @@ class Model
 			
 			// Read the object
 			
-			if (!$obj->read ($params))
+			if (!$obj->read ($params, $db))
 			{
 				return FALSE;
 			}
@@ -2221,10 +2431,11 @@ class Model
 	/**
 	 * Delete an object in the database
 	 * @param array|integer $params Primary key value or parameter array
+	 * @param \PDO $db Database connection to use
 	 * @return boolean
 	 */
 	
-	public static function _delete ($params)
+	public static function _delete ($params, &$db = FALSE)
 	{
 		
 		// Create object
@@ -2233,7 +2444,7 @@ class Model
 		
 		// Delete
 		
-		return $obj->delete ($params);
+		return $obj->delete ($params, $db);
 		
 	}
 	
@@ -2241,10 +2452,11 @@ class Model
 	/**
 	 * Return the number of objects in the database matching the parameters
 	 * @param array $params Parameter array
+	 * @param \PDO $db Database connection to use
 	 * @return integer|boolean
 	 */
 	
-	public static function _count ($params = array ())
+	public static function _count ($params = array (), &$db = FALSE)
 	{
 		
 		// Remove order
@@ -2253,14 +2465,21 @@ class Model
 		{
 			unset ($params['orderby']);
 		}
+		
+		// Remove limit
+
+		if (isset ($params['limit']))
+		{
+			unset ($params['limit']);
+		}
 
 		// Select count
 
 		$params['select'] = 'COUNT(*)';
 		
 		// Return
-
-		return static::_getValue ($params);
+		
+		return static::_getValue ($params, \PDO::FETCH_ASSOC, $db);
 
 	}
 	
@@ -2268,40 +2487,52 @@ class Model
 	/**
 	 * Check to see whether the object matching the parameters exists
 	 * @param array $params Parameter array
+	 * @param \PDO $db Database connection to use
 	 * @return boolean
 	 */
 	
-	public static function _exists ($params)
+	public static function _exists ($params, &$db = FALSE)
 	{
-		return self::_count ($params) > 0;
+	
+		if (!is_array ($params))
+		{
+			$params	= array (
+				'where'	=> array (
+					array (static::$pk, $params)
+				)
+			);
+		}
+		
+		return self::_count ($params, $db) > 0;
+		
 	}
 	
 	
 	/**
 	 * Check to see whether an object with the match ID exists
 	 * @param integer $id Primary key
+	 * @param \PDO $db Database connection to use
 	 * @return boolean
 	 */
 	
-	public static function _IDexists ($id)
+	public static function _IDexists ($id, &$db = FALSE)
 	{
-		
 		return self::_exists (array (
 			'where'	=> array (
 				array (static::$pk, $id)
 			)
-		));
-		
+		), $db);
 	}
 	
 	
 	/**
 	 * Return a random row
 	 * @param array $params Parameter Array
+	 * @param \PDO $db Database connection to use
 	 * @param boolean|\Sonic\Model
 	 */
 	
-	public static function _random ($params = array ())
+	public static function _random ($params = array (), &$db = FALSE)
 	{
 		
 		// Set random parameter
@@ -2310,7 +2541,7 @@ class Model
 		
 		// Return random row
 		
-		return self::_Read ($params);
+		return self::_Read ($params, $db);
 		
 	}
 	
@@ -2319,10 +2550,11 @@ class Model
 	 * Return a single row
 	 * @param array $params Parameter array
 	 * @param int $fetchMode PDO fetch mode, default to assoc
+	 * @param \PDO $db Database connection to use, default to slave resource
 	 * @return mixed
 	 */
 	
-	public static function _getValue ($params, $fetchMode = \PDO::FETCH_ASSOC)
+	public static function _getValue ($params, $fetchMode = \PDO::FETCH_ASSOC, &$db = FALSE)
 	{
 		
 		// Set select
@@ -2339,13 +2571,11 @@ class Model
 			$params['from']		= static::$dbTable;
 		}
 		
-		// Get database
-		
-		$db	= self::_getResource ('db');
-		
-		if (!($db instanceof \PDO))
+		// Get database slave for read
+
+		if ($db === FALSE)
 		{
-			throw new Exception ('Invalid or no database resource set');
+			$db	=& self::_getDbSlave ();
 		}
 		
 		// Return value
@@ -2358,10 +2588,11 @@ class Model
 	/**
 	 * Return all rows
 	 * @param array $params Parameter array
+	 * @param \PDO $db Database connection to use, default to slave resource
 	 * @return mixed
 	 */
 	
-	public static function _getValues ($params = array ())
+	public static function _getValues ($params = array (), &$db = FALSE)
 	{
 		
 		// Set select
@@ -2378,13 +2609,11 @@ class Model
 			$params['from']		= static::$dbTable;
 		}
 		
-		// Get database
-		
-		$db	= self::_getResource ('db');
-		
-		if (!($db instanceof \PDO))
+		// Get database slave for read
+
+		if ($db === FALSE)
 		{
-			throw new Exception ('Invalid or no database resource set');
+			$db	=& self::_getDbSlave ();
 		}
 		
 		// Return value
@@ -2398,15 +2627,12 @@ class Model
 	 * Create and return an array of objects for query parameters
 	 * @param array $params Parameter array
 	 * @param string $key Attribute value to use as the array index, default to 0-indexed
-	 * @return array
+	 * @param \PDO $db Database connection to use
+	 * @return \Sonic\Resource\Model\Collection
 	 */
 	
-	public static function _getObjects ($params = array (), $key = FALSE)
+	public static function _getObjects ($params = array (), $key = FALSE, &$db = FALSE)
 	{
-		
-		// Set object array
-		
-		$arr	=  new Resource\Model\Collection ();
 		
 		// Select all attributes if none are set
 		
@@ -2417,8 +2643,8 @@ class Model
 		
 		// Get data
 		
-		$rows	= static::_getValues ($params);
-		
+		$rows	= static::_getValues ($params, $db);
+
 		// If no data was returned return FALSE
 
 		if ($rows === FALSE)
@@ -2426,9 +2652,51 @@ class Model
 			return FALSE;
 		}
 		
+		// Return objects
+		
+		return self::_arrayToObjects ($rows);
+		
+	}
+	
+	
+	/**
+	 * Execute a PDOStatement query and convert the results into objects
+	 * @param \PDOStatement Query to execute 
+	 * @param string $key Attribute value to use as the array index, default to 0-indexed
+	 * @return Resource\Model\Collection
+	 */
+	
+	public static function _queryToObjects ($query, $key = FALSE)
+	{
+		$query->execute ();
+		return static::_arrayToObjects ($query->fetchAll (\PDO::FETCH_ASSOC), $key);
+	}
+	
+	
+	/**
+	 * Convert an array into objects
+	 * @param array $arr Array to convert
+	 * @param string $key Attribute value to use as the array index, default to 0-indexed
+	 * @return Resource\Model\Collection
+	 */
+	
+	public static function _arrayToObjects ($arr, $key = FALSE)
+	{
+		
+		// Set object array
+		
+		$objs	=  new Resource\Model\Collection ();
+		
+		// If no data
+
+		if (!$arr)
+		{
+			return $objs;
+		}
+		
 		// For each row
 		
-		foreach ($rows as $row)
+		foreach ($arr as $row)
 		{
 
 			// Create the object
@@ -2451,29 +2719,31 @@ class Model
 			
 			if ($key)
 			{
-				$arr[$obj->iget ($key)]	= $obj;
+				$objs[$obj->iget ($key)]	= $obj;
 			}
 			else
 			{
-				$arr[]	= $obj;
+				$objs[]	= $obj;
 			}
 
 		}
 		
-		// Return the object array
+		// Return the objects
 		
-		return $arr;
+		return $objs;
 		
 	}
 	
 	
 	/**
-	 * Generate the SQL for a query on the model
-	 * @param array $params Parameter array
-	 * @return string
+	 * Generate a query and return the PDOStatement object
+	 * @param array $params Query parameters
+	 * @param \Sonic\Resource\Db $db Database resource, default to class slave
+	 * @return \PDOStatement
+	 * @throws Exception
 	 */
 	
-	public static function _genSQL ($params = array ())
+	public static function _genQuery ($params, &$db = FALSE)
 	{
 		
 		// Set select
@@ -2490,9 +2760,55 @@ class Model
 			$params['from']		= static::$dbTable;
 		}
 		
-		// Get database
+		// Get database slave for read
+
+		if ($db === FALSE)
+		{
+			$db	=& self::_getDbSlave ();
+		}
 		
-		$db	= self::_getResource ('db');
+		if (!($db instanceof \PDO))
+		{
+			throw new Exception ('Invalid or no database resource set');
+		}
+		
+		// Return value
+
+		return $db->genQuery ($params);
+		
+	}
+	
+	
+	/**
+	 * Generate the SQL for a query on the model
+	 * @param array $params Parameter array
+	 * @param \PDO $db Database connection to use, default db
+	 * @return string
+	 */
+	
+	public static function _genSQL ($params = array (), &$db = FALSE)
+	{
+		
+		// Set select
+
+		if (!isset ($params['select']))
+		{
+			$params['select']	= '*';
+		}
+		
+		// Set from
+
+		if (!isset ($params['from']))
+		{
+			$params['from']		= static::$dbTable;
+		}
+		
+		// Get database slave for read
+
+		if ($db === FALSE)
+		{
+			$db	=& self::_getDbSlave ();
+		}
 		
 		if (!($db instanceof \PDO))
 		{
@@ -2510,10 +2826,11 @@ class Model
 	 * Return a DOM tree with objects for given query parameters 
 	 * @param array $params Parameter array
 	 * @param array|boolean $attributes Attributes to include, default to false i.e all attributes
+	 * @param \PDO $db Database connection to use
 	 * @return \DOMDocument|boolean
 	 */
 	
-	public static function _toXML ($params = array (), $attributes = FALSE)
+	public static function _toXML ($params = array (), $attributes = FALSE, &$db = FALSE)
 	{
 		
 		// Set class name for the elements
@@ -2532,7 +2849,7 @@ class Model
 		
 		// Get objects
 		
-		$rows	= static::_toArray ($params, $attributes);
+		$rows	= static::_toArray ($params, $attributes, $db);
 		
 		// For each row
 		
@@ -2568,15 +2885,16 @@ class Model
 	 * @param array $params Parameter array
 	 * @param array|boolean $attributes Attributes to include, default to false i.e all attributes
 	 * @param boolean $addClass Whether to add the class name to each exported object
+	 * @param \PDO $db Database connection to use
 	 * @return object|boolean
 	 */
 	
-	public static function _toJSON ($params = array (), $attributes = FALSE, $addClass = FALSE)
+	public static function _toJSON ($params = array (), $attributes = FALSE, $addClass = FALSE, &$db = FALSE)
 	{
 		
 		// Get objects
 		
-		$rows	= static::_toArray ($params, $attributes);
+		$rows	= static::_toArray ($params, $attributes, $db);
 		
 		// Add the class name if required
 		
@@ -2606,10 +2924,11 @@ class Model
 	 * Return an array with object attributes for given query parameters 
 	 * @param array $params Parameter array
 	 * @param array|boolean $attributes Attributes to include, default to false i.e all attributes
+	 * @param \PDO $db Database connection to use
 	 * @return object|boolean
 	 */
 	
-	public static function _toArray ($params = array (), $attributes = FALSE)
+	public static function _toArray ($params = array (), $attributes = FALSE, &$db = FALSE)
 	{
 		
 		// If no attributes are set to display, get all class attributes with get allowed
@@ -2641,7 +2960,7 @@ class Model
 		
 		// Get data
 		
-		$rows	= static::_getValues ($params);
+		$rows	= static::_getValues ($params, $db);
 		
 		// If no data was returned return FALSE
 
@@ -2704,36 +3023,54 @@ class Model
 			$endClass	= substr ($endClass, 1);
 		}
 		
+		// Make sure fork is an array
+		
+		if ($fork === FALSE)
+		{
+			$fork	= array ();
+		}
+		
 		// Set variables
 		
 		$class			= get_called_class ();
-		$processed[]	= $class;
+		$processed[]	= strtolower ($class);
 		$parent			= $paths;
 		
 		$depth++;
 		
-		// Find paths
+		// Find paths to the end class
+		// Loop through attributes
 		
 		foreach (static::$attributes as $name => $attribute)
 		{
+			
+			// No attribute relation or class for the relation
 			
 			if (!isset ($attribute['relation']) || !class_exists ($attribute['relation']) || 
 				(isset ($fork[$class]) && $fork[$class] != $name))
 			{
 				continue;
 			}
+			
+			// Attribute relation matches the end class so add to paths
+			
 			else if ($attribute['relation'] == $endClass)
 			{
 				$paths[$name]	= $depth;
 				continue;
 			}
-			else if (in_array ($attribute['relation'], $processed))
+			
+			// The attribute relation has already been processed
+			
+			else if (in_array (strtolower ($attribute['relation']), $processed))
 			{
 				continue;
 			}
+			
+			// Recursively look at relation attributes
+			
 			else
 			{
-				
 				$subPaths	= $attribute['relation']::_getRelationPaths ($endClass, $fork, $parent, $processed, $depth);
 				
 				if ($subPaths)
@@ -2792,10 +3129,11 @@ class Model
 	 * Return a related object for a given object and path
 	 * @param Model $obj Starting object
 	 * @param array $path Path to the end object
+	 * @param array $params Query parameter array
 	 * @return \Sonic\Model|boolean
 	 */
 	
-	public static function _getRelation ($obj, $path)
+	public static function _getRelation ($obj, $path, $params = array ())
 	{
 		
 		foreach ($path as $class => $name)
@@ -2806,7 +3144,8 @@ class Model
 			
 			if ($obj->iget ($name))
 			{
-				$obj	= $childClass::_read ($obj->iget ($name));
+				$params['where'][]	= array ($childClass::$pk, $obj->iget ($name));
+				$obj	= $childClass::_Read ($params);
 			}
 			else
 			{
@@ -2827,10 +3166,11 @@ class Model
 	 * @param boolean $recursive Whether to load childrens children.
 	 *   This will create an object attribute called 'children' on all objects
 	 * @param string $key Attribute to use as array key
+	 * @param array $params Query parameter array
 	 * @return array|boolean
 	 */
 	
-	public static function _getChildren ($class, $id, $recursive = FALSE, $key = FALSE)
+	public static function _getChildren ($class, $id, $recursive = FALSE, $key = FALSE, $params = array ())
 	{
 		
 		// Remove first \ from class
@@ -2870,24 +3210,18 @@ class Model
 		
 		// Get children
 		
+		$qParams	= $params;
+		
 		if (is_null ($id))
 		{
-			$params	= array (
-				'where'	=> array (
-					array ($var, 'NULL', 'IS')
-				)
-			);
+			$qParams['where'][]	= array ($var, 'NULL', 'IS');
 		}
 		else
 		{
-			$params	= array (
-				'where'	=> array (
-					array ($var, $id)
-				)
-			);
+			$qParams['where'][]	= array ($var, $id);
 		}
 		
-		$children	= $class::_getObjects ($params, $key);
+		$children	= $class::_getObjects ($qParams, $key);
 		
 		// Get recursively
 		
@@ -2896,7 +3230,7 @@ class Model
 			
 			foreach ($children as &$child)
 			{
-				$child->children	= $child->getChildren ($class, $recursive, FALSE, $key);
+				$child->children	= $child->getChildren ($class, $recursive, FALSE, $key, $params);
 			}
 			
 		}
@@ -2936,10 +3270,11 @@ class Model
 	 * @param array $relations Array of related object attributes or tranformed method attributes to return
 	 *   e.g. related value - 'query_name' => array ('\Sonic\Model\User\Group', 'name')
 	 *   e.g. tranformed value - 'permission_value' => array ('$this', 'getStringValue')
+	 * @param \PDO $db Database connection to use
 	 * @return array|boolean
 	 */
 
-	public static function _getGrid ($params = array (), $relations = array ())
+	public static function _getGrid ($params = array (), $relations = array (), &$db = FALSE)
 	{
 		
 		// If no limit has been set
@@ -2958,7 +3293,7 @@ class Model
 		if ($relations)
 		{
 			
-			$objs	= static::_getObjects ($params);
+			$objs	= static::_getObjects ($params, $db);
 			$data	= array ();
 			
 			foreach ($objs as $obj)
@@ -2978,12 +3313,12 @@ class Model
 		}
 		else
 		{
-			$data	= static::_getValues ($params);
+			$data	= static::_getValues ($params, $db);
 		}
 		
 		// Get count
 		
-		$count	= self::_Count ($params);
+		$count	= self::_count ($params, $db);
 
 		// If there was a problem return FALSE
 
@@ -3014,21 +3349,173 @@ class Model
 	/**
 	 * Return a class resource
 	 *  This will either be the default as defined for the class or the global framework resource
-	 * @param string $name Resource name
+	 * @param string|array $name Resource name
 	 * @return object|boolean
 	 */
 	
 	public static function &_getResource ($name)
 	{
 		
-		if (isset (static::$defaultResources[$name]))
+		if (is_array ($name))
+		{
+			return Sonic::getResource ($name);
+		}
+		else if (isset (static::$defaultResources[$name]))
 		{
 			return Sonic::getResource (static::$defaultResources[$name]);
 		}
 		else
 		{
-			return Sonic::getResource ($name);
+			return Sonic::getSelectedResource ($name);
 		}
+		
+	}
+	
+	
+	/**
+	 * Return random database resource object
+	 * @param string $group Group name
+	 * @return boolean|\Sonic\Model\PDO
+	 */
+	
+	public static function &_getRandomDbResource ($group)
+	{
+		
+		$obj	= FALSE;
+		
+		while (Sonic::countResourceGroup ($group) > 0)
+		{
+
+			$name	= Sonic::selectRandomResource ($group);
+			$obj	=& Sonic::getResource (array ($group, $name));
+			
+			// If a PDO object
+
+			if ($obj instanceof \PDO)
+			{
+
+				// Attempt to connect to the resource
+				// This will throw an exception if it fails or break the loop if it succeeds
+
+				if ($obj instanceof \Sonic\Resource\Db)
+				{
+					try
+					{
+						
+						$obj->Connect ();
+						
+						// Set as default group object for persistence
+						
+						Sonic::setSelectedResource ($group, $name);
+						
+						break;
+						
+					}
+					catch (\PDOException $e)
+					{
+						// Do nothing
+					}
+				}
+
+				// Else not a framework database objects so break the loop to use it
+
+				else
+				{
+					break;
+				}
+
+			}
+
+			// Remove resource from the framework as its not valid
+			// then continue to the next object
+
+			Sonic::removeResource ($group, $name);
+			$obj = FALSE;
+
+		}
+		
+		return $obj;
+		
+	}
+	
+	
+	/**
+	 * Return database master
+	 * @return \Sonic\Resource\Db
+	 */
+	
+	public static function &_getDb ()
+	{
+		return self::_getDbMaster ();		
+	}
+	
+	
+	/**
+	 * Return database master
+	 * @return \Sonic\Resource\Db
+	 */
+	
+	public static function &_getDbMaster ()
+	{
+		
+		// Get the default master
+		
+		$obj	=& self::_getResource ('db-master');
+		
+		// Failing that try to get a random master
+		
+		if (!$obj)
+		{
+			
+			$obj	=& self::_getRandomDbResource ('db-master');
+			
+			// Default to database resource if no valid master
+		
+			if (!$obj)
+			{
+				$obj =& self::_getResource ('db');
+			}
+			
+		}
+		
+		// Return database connection
+		
+		return $obj;
+		
+	}
+	
+	
+	/**
+	 * Return database slave
+	 * @return \Sonic\Resource\Db
+	 */
+	
+	public static function &_getDbSlave ()
+	{
+		
+		// Get the default slave
+		
+		$obj	=& self::_getResource ('db-slave');
+		
+		// Failing that try to get a random slave
+		
+		if (!$obj)
+		{
+			
+			$obj	=& self::_getRandomDbResource ('db-slave');
+			
+			// Default to database resource if no valid slave
+		
+			if (!$obj)
+			{
+				$obj =& self::_getResource ('db');
+			}
+			
+		}
+		
+		// Return database connection
+		
+		return $obj;
 		
 	}
 	

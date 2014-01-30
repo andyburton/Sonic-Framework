@@ -160,7 +160,7 @@ class Db extends \Sonic\Model
 	 * @return array
 	 */
 	
-	public function getPk ($db, $table)
+	public function getPrimaryKey ($db, $table)
 	{
 		
 		// Get pk name

@@ -10,9 +10,9 @@ require_once (ABS_PARENT . 'smarty-repo/Smarty.class.php');
 
 // Define smarty directories
 
-@define ('SMARTY_TEMPLATE_DIR',		ABS_SMARTY . 'templates');
-@define ('SMARTY_CACHE_DIR',		ABS_SMARTY . 'cached');
-@define ('SMARTY_COMPILE_DIR',		ABS_SMARTY . 'compiled');
-@define ('SMARTY_CONFIG_DIR',		ABS_SMARTY . 'config');
-@define ('SMARTY_PLUGINS_DIR',		ABS_SMARTY . 'plugins');
-@define ('SMARTY_ERROR_REPORTING',	E_ALL & ~E_NOTICE);
+@define ('SONIC_SMARTY_TEMPLATE_DIR',		ABS_SMARTY . 'templates');
+@define ('SONIC_SMARTY_CACHE_DIR',			ABS_SMARTY . 'cached');
+@define ('SONIC_SMARTY_COMPILE_DIR',		ABS_SMARTY . 'compiled');
+@define ('SONIC_SMARTY_CONFIG_DIR',			ABS_SMARTY . 'config');
+@define ('SONIC_SMARTY_PLUGINS_DIR',		ABS_SMARTY . 'plugins');
+@define ('SONIC_SMARTY_ERROR_REPORTING',	E_ALL & ~E_NOTICE);

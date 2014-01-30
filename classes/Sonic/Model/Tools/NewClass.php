@@ -436,7 +436,7 @@ class NewClass extends \Sonic\Model
 
 		// Get primary key field
 
-		return $db->getPk ($this->get ('database'), $this->get ('table'));
+		return $db->getPrimaryKey ($this->get ('database'), $this->get ('table'));
 		
 	}
 	

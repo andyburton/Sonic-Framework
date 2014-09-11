@@ -4,9 +4,9 @@
 
 namespace Sonic\Resource;
 
-// Require openwall phpass for hashing
+// Use Hautelook implimentation of Openwall Phpass
 
-require_once ('phpass-0.3/PasswordHash.php');
+use Hautelook\Phpass\PasswordHash;
 
 // Start User Class
 
@@ -669,12 +669,12 @@ class User extends \Sonic\Model
 	
 	/**
 	 * Return a phpass hashing object
-	 * @return \PasswordHash 
+	 * @return PasswordHash 
 	 */
 	
 	public static function _newHasher ()
 	{
-		return new \PasswordHash (8, FALSE);
+		return new PasswordHash (8, FALSE);
 	}
 	
 	

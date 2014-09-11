@@ -54,32 +54,42 @@ class Sonic
 	public static function _autoload ($class)
 	{
 		
-		// Strip first \
+		// Strip first slash
 		
-		while (strpos ($class, '\\') === 0)
-		{
-			$class = substr ($class, 1);
-		}
+		$class		= ltrim ($class, '\\');
+		$namespace	= NULL;
+		$filename	= NULL;
 		
 		// If we're loading a sonic class
 		
 		if (stripos ($class, 'Sonic\\') === 0)
 		{
 			
-			// Replace namespace \ with dir seperate
-
-			if ('\\' !== DIRECTORY_SEPARATOR)
+			// Process namespace
+			
+			if ($nsPos = strripos ($class, '\\'))
 			{
-				$class = str_replace ('\\', DIRECTORY_SEPARATOR, $class);
+				$namespace	= substr ($class, 0, $nsPos);
+				$class		= substr ($class, $nsPos + 1);
+				$filename	= str_replace ('\\', DIRECTORY_SEPARATOR, $namespace) . DIRECTORY_SEPARATOR;
 			}
 			
-			if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $class . '.php'))
+			// Replace _ with directory seperator in class
+			
+			$filename	.= str_replace ('_', DIRECTORY_SEPARATOR, $class) . '.php';
+			
+			// Check for framework class first
+			
+			if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $filename))
 			{
-				include_once (ABS_SONIC . $class . '.php');
+				require_once (ABS_SONIC . $filename);
 			}
-			else if (file_exists (ABS_CLASSES . $class . '.php'))
+			
+			// Else check class library
+			
+			else if (defined ('ABS_CLASSES') && file_exists (ABS_CLASSES . $filename))
 			{
-				include_once (ABS_CLASSES . $class . '.php');
+				require_once (ABS_CLASSES . $filename);
 			}
 			
 		}

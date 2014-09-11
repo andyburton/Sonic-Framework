@@ -14,7 +14,7 @@
 	],
 	"require": {
 		"php": "~5.4",
-		"hautelook/phpass": "dev-master"
+		"hautelook/phpass": "~0.3"
 	},
 	"autoload": {
 		"psr-4" : {

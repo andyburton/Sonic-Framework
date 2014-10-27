@@ -4,10 +4,6 @@
 
 namespace Sonic\Resource;
 
-// Use Hautelook implimentation of Openwall Phpass
-
-use Hautelook\Phpass\PasswordHash;
-
 // Start User Class
 
 class User extends \Sonic\Model
@@ -613,15 +609,7 @@ class User extends \Sonic\Model
 	
 	public function checkPassword ($check)
 	{
-		
-		// Get hasher
-		
-		$hasher	= static::_newHasher ();
-		
-		// Check the password is valid
-		
-		return $hasher->CheckPassword ($check, $this->get ('password'));
-		
+		return password_verify ($check, $this->get ('password'));
 	}
 	
 	
@@ -657,24 +645,7 @@ class User extends \Sonic\Model
 	
 	public static function _Hash ($password)
 	{
-		
-		// Create new hashing object and return a bcrypt hash
-		
-		$hasher	= self::_newHasher ();
-		
-		return $hasher->HashPassword ($password);
-		
-	}
-	
-	
-	/**
-	 * Return a phpass hashing object
-	 * @return PasswordHash 
-	 */
-	
-	public static function _newHasher ()
-	{
-		return new PasswordHash (8, FALSE);
+		return password_hash ($password, PASSWORD_BCRYPT, ['cost' => 10]);
 	}
 	
 	

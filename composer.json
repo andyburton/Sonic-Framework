@@ -13,8 +13,7 @@
 		}
 	],
 	"require": {
-		"php": "~5.4",
-		"hautelook/phpass": "~0.3"
+		"php": "~5.5"
 	},
 	"autoload": {
 		"psr-4" : {

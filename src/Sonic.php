@@ -105,23 +105,7 @@ class Sonic
 	
 	public static function _classExists ($class)
 	{
-		
-		// Replace namespace \ with dir seperate
-
-		if ('\\' !== DIRECTORY_SEPARATOR)
-		{
-			$class = str_replace ('\\', DIRECTORY_SEPARATOR, $class);
-		}
-
-		if (defined ('ABS_SONIC') && file_exists (ABS_SONIC . $class . '.php'))
-		{
-			return TRUE;
-		}
-		else
-		{
-			return file_exists (ABS_CLASSES . $class . '.php');
-		}
-		
+		return class_exists ($class);
 	}
 	
 	

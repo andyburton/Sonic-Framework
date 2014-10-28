@@ -99,17 +99,17 @@ class NewClass extends \Sonic\Model
 		'email'			=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'andy@andyburton.co.uk'
+			'default'	=> 'andy@burtonws.co.uk'
 		),
 		'link'			=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'http://www.andyburton.co.uk'
+			'default'	=> 'http://www.burtonws.co.uk'
 		),
 		'copyright'		=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> 'Andy Burton'
+			'default'	=> 'Burton Web Services Ltd'
 		),
 		'database'		=> array (
 			'get'		=> TRUE,
@@ -132,6 +132,26 @@ class NewClass extends \Sonic\Model
 		
 		$this->set ('date_created', date ('d/m/Y'));
 		$this->set ('database', $this->db->getDatabaseName ());
+		
+		if (defined ('AUTHOR_NAME'))
+		{
+			$this->set ('author',		AUTHOR_NAME);
+		}
+		
+		if (defined ('AUTHOR_EMAIL'))
+		{
+			$this->set ('email',		AUTHOR_EMAIL);
+		}
+		
+		if (defined ('AUTHOR_URL'))
+		{
+			$this->set ('link',			AUTHOR_URL);
+		}
+		
+		if (defined ('AUTHOR_COPYRIGHT'))
+		{
+			$this->set ('copyright',	AUTHOR_COPYRIGHT);
+		}
 		
 	}
 	

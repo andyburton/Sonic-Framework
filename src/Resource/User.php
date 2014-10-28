@@ -217,9 +217,9 @@ class User extends \Sonic\Model
 		
 		$count	= static::_Count (array (
 			'where'	=> array (
-				array ('email', $this->iget ('email')),
-				array ('id',	$this->iget ('id'),	'<>'),
-                                array ('removed',	0)
+				array ('email',		$this->iget ('email')),
+				array ('id',		$this->iget ('id'),	'<>'),
+				array ('removed',	0)
 			)
 		));
 		

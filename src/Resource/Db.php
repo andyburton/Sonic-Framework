@@ -1237,7 +1237,7 @@ class Db extends \PDO
 	 * @param \Sonic\Resource\Db $db
 	 */
 	
-	public function addTransactionHook (\Sonic\Resource\Db &$db)
+	public function addTransactionHook (Db &$db)
 	{
 		
 		// Get argument database DSN

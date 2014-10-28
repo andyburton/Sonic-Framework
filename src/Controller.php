@@ -194,9 +194,9 @@ class Controller
 
 		// Auditlog
 		
-		$auditlog	= \Sonic\Sonic::getResource ('auditlog');
+		$auditlog	= Sonic::getResource ('auditlog');
 
-		if ($auditlog instanceof \Sonic\Resource\Audit\Log)
+		if ($auditlog instanceof Resource\Audit\Log)
 		{
 			$auditlog::_Log (get_called_class () . '\\' . $this->action, 7, $this->request, array (
 				'file'		=> $exception->getFile (),

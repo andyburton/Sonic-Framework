@@ -106,7 +106,7 @@ class Api
 		
 		$auditlog	= \Sonic\Sonic::getResource ('auditlog');
 
-		if ($auditlog instanceof \Sonic\Resource\Audit\Log)
+		if ($auditlog instanceof Audit\Log)
 		{
 			$auditlog::_Log ($this->action, 7, $this->args, $this->result['exception']);
 		}
@@ -476,7 +476,7 @@ class Api
 		
 		// Auditlog
 
-		if ($auditlog instanceof \Sonic\Resource\Audit\Log)
+		if ($auditlog instanceof Audit\Log)
 		{
 			$auditlog::_Log ($this->action, $logType, $logParams, $logResponse);
 		}
@@ -639,7 +639,7 @@ class Api
 		// Remove auth error if the user is authenticated
 		// This is created during the user init even if they are later authenticated
 		
-		if (\Sonic\Resource\Parser::_ak ($this->result, 'authenticated', FALSE) !== 0)
+		if (Parser::_ak ($this->result, 'authenticated', FALSE) !== 0)
 		{
 			unset ($this->result['auth_error']);
 		}

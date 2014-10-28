@@ -1442,7 +1442,7 @@ class Model
 	 *   Defaults to object 'db' connection resource
 	 */
 	
-	public function hookTransactions (\Sonic\Resource\Db &$parent, \Sonic\Resource\Db &$child = NULL)
+	public function hookTransactions (Resource\Db &$parent, Resource\Db &$child = NULL)
 	{
 		
 		// Use default object database resource if none is specified
@@ -2319,7 +2319,7 @@ class Model
 	
 	public static function _getNamespace ()
 	{
-		$arr	= \Sonic\Resource\Parser::_getNamespaceAndClass (get_called_class ());
+		$arr	= Resource\Parser::_getNamespaceAndClass (get_called_class ());
 		return $arr[0];
 	}
 	
@@ -2342,7 +2342,7 @@ class Model
 	
 	public static function _getClass ()
 	{
-		$arr	= \Sonic\Resource\Parser::_getNamespaceAndClass (get_called_class ());
+		$arr	= Resource\Parser::_getNamespaceAndClass (get_called_class ());
 		return $arr[1];
 	}
 	
@@ -3397,7 +3397,7 @@ class Model
 				// Attempt to connect to the resource
 				// This will throw an exception if it fails or break the loop if it succeeds
 
-				if ($obj instanceof \Sonic\Resource\Db)
+				if ($obj instanceof Resource\Db)
 				{
 					try
 					{
@@ -3606,8 +3606,8 @@ class Model
 		
 		// If there is no changelog resource defined or we're dealing with a changelog object return FALSE
 		
-		if (!($this->getResource ('changelog') instanceof \Sonic\Resource\Change\Log) || 
-			$this instanceof \Sonic\Resource\Change\Log || $this instanceof \Sonic\Resource\Change\Log\Column)
+		if (!($this->getResource ('changelog') instanceof Resource\Change\Log) || 
+			$this instanceof Resource\Change\Log || $this instanceof Resource\Change\Log\Column)
 		{
 			return FALSE;
 		}

@@ -20,7 +20,7 @@ class REST extends \Sonic\Resource\Controller\URL
 		
 		// Set redirect path
 		
-		$redirect	= isset ($_SERVER['REDIRECT_URL'])? $_SERVER['REDIRECT_URL'] : '';
+		$redirect	= isset ($_SERVER['REQUEST_URI'])? $_SERVER['REQUEST_URI'] : '';
 		
 		/**
 		 * Action is the last section after the final /

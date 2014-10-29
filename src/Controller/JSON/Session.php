@@ -59,7 +59,10 @@ abstract class Session extends \Sonic\Controller\JSON
 		
 		// Create user
 		
-		$this->user	= new \Sonic\Model\User ($session_id);
+		if (!$this->user)
+		{
+			$this->user	= new \Sonic\Model\User ($session_id);
+		}
 		
 		// Check authenticated
 		

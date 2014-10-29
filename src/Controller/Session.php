@@ -4,6 +4,8 @@
 
 namespace Sonic\Controller;
 
+use Sonic\Message;
+
 // Start Session Class
 
 abstract class Session extends \Sonic\Controller
@@ -15,7 +17,7 @@ abstract class Session extends \Sonic\Controller
 	 * @var string 
 	 */
 	
-	public $authModule		= 'admin';
+	public $authModule		= 'auth';
 	
 	
 	/**
@@ -55,7 +57,10 @@ abstract class Session extends \Sonic\Controller
 		
 		// Create user
 		
-		$this->user	= new \Sonic\Model\User;
+		if (!$this->user)
+		{
+			$this->user	= new \Sonic\Model\User;
+		}
 		
 		// Check authenticated
 		
@@ -68,17 +73,17 @@ abstract class Session extends \Sonic\Controller
 			{
 				
 				case 'invalid_session':
-					new \Sonic\Message ('error', 'Please login to continue');
+					new Message ('error', 'Please login to continue');
 					break;
 				
 				case 'user_read_error':
-					new \Sonic\Message ('error', 'There seems to be a problem, please login to continue'); break;
+					new Message ('error', 'There seems to be a problem, please login to continue'); break;
 				
 				case 'inactive':
-					new \Sonic\Message ('error', 'Account not activated'); break;
+					new Message ('error', 'Account not activated'); break;
 				
 				case 'timeout':
-					new \Sonic\Message ('error', 'Your session has expired, please login to continue'); break;
+					new Message ('error', 'Your session has expired, please login to continue'); break;
 				
 			}
 			

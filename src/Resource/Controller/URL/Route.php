@@ -20,7 +20,7 @@ class Route extends \Sonic\Resource\Controller\URL
 		
 		// Set redirect path
 		
-		$redirect	= isset ($_SERVER['REQUEST_URI'])? $_SERVER['REQUEST_URI'] : '';
+		$redirect	= isset ($_SERVER['REQUEST_URI'])? strtok ($_SERVER['REQUEST_URI'], '?') : '';
 		
 		/**
 		 * Action is the last section after the final /

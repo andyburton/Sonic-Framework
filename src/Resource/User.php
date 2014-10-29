@@ -518,9 +518,14 @@ class User extends \Sonic\Model
 		$this->session->Create ();
 		$this->session->Refresh ();
 		
-		// Store requested URL
+		// Store requested URL if there is a reason we're logging out
+		// If no reason then just a logout request, so we dont want to store
+		// it else we'll create a loop should they try to log back in.
 		
-		$this->session->set ('requested_url', $_SERVER['REQUEST_URI']);
+		if ($reason !== FALSE)
+		{
+			$this->session->set ('requested_url', $_SERVER['REQUEST_URI']);
+		}
 		
 		// Return
 		

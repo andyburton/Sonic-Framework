@@ -65,7 +65,7 @@ class NewClass extends \Sonic\Model
 		'namespace'		=> array (
 			'get'		=> TRUE,
 			'set'		=> TRUE,
-			'default'	=> ''
+			'default'	=> 'Sonic\\Model'
 		),
 		'name'			=> array (
 			'get'		=> TRUE,

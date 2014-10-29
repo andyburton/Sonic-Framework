@@ -4,9 +4,9 @@
 
 namespace Sonic\Resource\Controller\URL;
 
-// Start REST Class
+// Start Route Class
 
-class REST extends \Sonic\Resource\Controller\URL
+class Route extends \Sonic\Resource\Controller\URL
 {
 	
 	

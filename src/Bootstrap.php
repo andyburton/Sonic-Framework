@@ -12,10 +12,10 @@ class Bootstrap
 	
 	/**
 	 * Default controller class path
-	 * @var string
+	 * @var array
 	 */
 	
-	public $controllerPath			= 'Sonic\\Controller';
+	public $controllerPath			= ['\\Sonic\\Controller'];
 	
 	/**
 	 * Controller module
@@ -57,17 +57,19 @@ class Bootstrap
 	/**
 	 * Instantiate class
 	 * @param boolean $run Run the bootstrap from the constructor, default to FALSE
+	 * @param boolean $displayView Whether to display the view when run is called
+	 * 
 	 * @return void
 	 */
 	
-	public function __construct ($run = FALSE)
+	public function __construct ($run = FALSE, $displayView = TRUE)
 	{
 		
 		// Run the bootstrap if requested
 		
 		if ($run)
 		{
-			$this->Run ();
+			$this->Run ($displayView);
 		}
 		
 	}
@@ -81,112 +83,161 @@ class Bootstrap
 	
 	public function Run ($displayView = TRUE)
 	{
-		
-		// Set controller class path
-		
-		$controllerClass	= $this->controllerPath;
-		
-		// Add module to the class path
-		
-		$controllerClass .= $this->controllerModule? '\\' . $this->controllerModule : NULL;
-		
-		// Default to REST url processor if none is set
-		
+	
+		// Default to Route url processor if none is set
+
 		if (!$this->urlProcessor)
 		{
-			$this->urlProcessor	= new Resource\Controller\URL\REST;
+			$this->urlProcessor	= new Resource\Controller\URL\Route;
 		}
 		
 		// Run url processor to work out the controller and action
-		
+
 		$this->urlProcessor->Process ();
 		
-		// If there is no controller check for default index class and action
+		// Set controller paths to look in
 		
-		if (!$this->urlProcessor->controller && 
-			Sonic::_classExists ($controllerClass . '\\Index') && 
-			method_exists ($controllerClass . '\\Index', $this->urlProcessor->action))
+		$controllerPaths	= is_array ($this->controllerPath)? $this->controllerPath : [$this->controllerPath];
+		
+		// Look through paths to look for controller
+		
+		foreach ($controllerPaths as $controllerClass)
 		{
-			$this->urlProcessor->controller	= 'Index';
-		}
-		
-		// Append controller to the controller class if there is one
 
-		$controllerClass	.= $this->urlProcessor->controller? '\\' . $this->urlProcessor->controller : NULL;
-		
-		// If the controller doesnt exist or the action doesnt exist on the controller
-		
-		if (!Sonic::_classExists ($controllerClass) || !method_exists ($controllerClass, $this->urlProcessor->action))
-		{
+			// Add module to the class path
+
+			$controllerClass .= $this->controllerModule? '\\' . $this->controllerModule : NULL;
+
+			// Append controller to the controller class if there is one
+
+			$controllerClass	.= $this->urlProcessor->controller? '\\' . $this->urlProcessor->controller : NULL;
 			
-			// Try capture all on the controller
-			// e.g. /admin -> \Sonic\Controller\Index->captureall ()
+			/**
+			 * 
+			 * Try the following route conversions:
+			 * 
+			 * Controller/Action	-> Controller->action
+			 * Controller/Action	-> Action->index
+			 * Action				-> Index->action
+			 * Action				-> Index->captureall
+			 * Controller/Action	-> Controller->captureall
+			 * Controller/Action	-> Action->captureall
+			 * Controller/Action	-> Action\Index->index
+			 * Controller/Action	-> Action\Index->captureall
+			 * 
+			 */
 			
-			if ($this->captureall && 
-				Sonic::_classExists ($controllerClass) && 
-				method_exists ($controllerClass, 'captureall'))
+			// Try controller with action
+			// e.g. /admin/login -> \Sonic\Controller\Admin->login ()
+
+			if (class_exists ($controllerClass) && 
+				method_exists ($controllerClass, $this->urlProcessor->action))
 			{
-				$this->urlProcessor->action		= 'captureall';
+				break;
 			}
-			
+
 			// Try action as controller with index action
 			// e.g. /admin -> \Sonic\Controller\Admin->index ()
-			
-			elseif (Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
+
+			elseif (class_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
 				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action), 'index'))
 			{
 				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action);
 				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action);
 				$this->urlProcessor->action		= 'index';
+				break;
 			}
 			
+			// If no controller
+			
+			else if (!$this->urlProcessor->controller)
+			{
+				
+				// Try index controller
+				
+				if (class_exists ($controllerClass . '\\Index'))
+				{
+				
+					// Try action on index controller
+					// e.g. /admin -> \Sonic\Controller\Index->admin ()
+					
+					if (method_exists ($controllerClass . '\\Index', $this->urlProcessor->action))
+					{
+						$this->urlProcessor->controller	= 'Index';
+						$controllerClass .= '\\Index';
+						break;
+					}
+
+					// Try capture all on index controller
+					// e.g. /admin -> \Sonic\Controller\Index->captureall ()
+
+					else if (method_exists ($controllerClass . '\\Index', 'captureall'))
+					{
+						$this->urlProcessor->controller	= 'Index';
+						$controllerClass .= '\\Index';
+						$this->urlProcessor->action		= 'captureall';
+						break;
+					}
+					
+				}
+				
+			}
+			
+			// Try capture all on the controller
+			// e.g. /admin/login -> \Sonic\Controller\Admin->captureall ()
+
+			If ($this->captureall && 
+				class_exists ($controllerClass) && 
+				method_exists ($controllerClass, 'captureall'))
+			{
+				
+				$this->urlProcessor->action		= 'captureall';
+				break;
+			}
+
 			// Try action as controller with captureall action
 			// e.g. /admin -> \Sonic\Controller\Admin->captureall ()
-			
+
 			elseif ($this->captureall && 
-				Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
+				class_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action)) && 
 				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action), 'captureall'))
 			{
 				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action);
 				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action);
 				$this->urlProcessor->action		= 'captureall';
+				break;
 			}
-			
+
 			// Try Action\Index as the controller with index action
 			// e.g. /admin -> \Sonic\Controller\Admin\Index->index ()
 
-			elseif (Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
+			elseif (class_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
 				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index', 'index'))
 			{
 				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
 				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
 				$this->urlProcessor->action		= 'index';
+				break;
 			}
-			
+
 			// Try Action\Index as the controller with captureall action
 			// e.g. /admin -> \Sonic\Controller\Admin\Index->captureall ()
 
 			elseif ($this->captureall && 
-				Sonic::_classExists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
+				class_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index') && 
 				method_exists ($controllerClass . '\\' . ucfirst ($this->urlProcessor->action) . '\\Index', 'captureall'))
 			{
 				$controllerClass				.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
 				$this->urlProcessor->controller	.= '\\' . ucfirst ($this->urlProcessor->action) . '\\Index';
 				$this->urlProcessor->action		= 'captureall';
-			}
-			
-			// Remove starting \ from controller
-			
-			if (substr ($this->urlProcessor->controller, 0, 1) == '\\')
-			{
-				$this->urlProcessor->controller	= substr ($this->urlProcessor->controller, 1);
+				break;
 			}
 			
 		}
 		
 		// Error if the controller and action do not exist
 		
-		if (!Sonic::_classExists ($controllerClass) || !method_exists ($controllerClass, $this->urlProcessor->action))
+		if (!class_exists ($controllerClass) || !method_exists ($controllerClass, $this->urlProcessor->action))
 		{
 			throw new Exception ('Invalid controller action: ' . $this->urlProcessor->controller . '\\' . $this->urlProcessor->action, 404);
 		}

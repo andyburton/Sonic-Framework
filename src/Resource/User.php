@@ -206,6 +206,57 @@ class User extends \Sonic\Model
 	
 	
 	/**
+	 * Delete an object in the database
+	 * @param array|integer $params Primary key value or parameter array
+	 * @param \PDO $db Database connection to use, default to master resource
+	 * @return boolean
+	 */
+	
+	public function Delete ($params = FALSE, &$db = FALSE)
+	{
+		
+		// Get database master for write
+
+		if ($db === FALSE)
+		{
+			$db	=& $this->getDbMaster ();
+		}
+		
+		// Get objects
+		
+		$objs	= is_array ($params)? self::_getObjects ($params, $db) : self::_read ($params, $db);
+		
+		// Remove each
+		
+		$db->beginTransaction ();
+		
+		foreach ($objs as $obj)
+		{
+			if (!$obj->Remove ())
+			{
+				$db->rollBack ();
+				return FALSE;
+			}
+		}
+		
+		$db->commit ();
+		return TRUE;
+		
+	}
+	
+	
+	/**
+	 * Mark a user as removed
+	 * @return boolean
+	 */
+	
+	public function Remove ()
+	{
+		return $this->updateAttribute ('removed', '1');
+	}
+	
+	
+	/**
 	 * Check whether the email address for the account already exists
 	 * @return boolean
 	 */
@@ -341,7 +392,7 @@ class User extends \Sonic\Model
 		
 		// If the user is not active or the active status has changed
 		
-		if ($session['active'] !== $this->iget ('active') || !$this->iget ('active'))
+		if ($session['active'] != $this->iget ('active') || !$this->iget ('active'))
 		{
 			return $this->Logout ('inactive');
 		}

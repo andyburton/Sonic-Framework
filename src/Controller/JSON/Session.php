@@ -70,9 +70,8 @@ abstract class Session extends \Sonic\Controller\JSON
 		
 		if ($auth !== TRUE)
 		{
-			$this->error ($auth);
 			$this->view->response['auth_fail']	= TRUE;
-			return;
+			return $this->error ($auth);
 		}
 		
 		// Return

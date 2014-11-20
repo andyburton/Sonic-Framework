@@ -406,4 +406,11 @@ class Tools extends \Sonic\Controller
 	}
 	
 	
+	public function view_request ()
+	{
+		echo 'GET: ' . print_r ($_GET, 1);
+		echo 'POST: ' . print_r ($_POST, 1);
+		echo 'FILES: ' . print_r ($_FILES, 1);
+		exit;
+	}
 }

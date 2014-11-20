@@ -553,8 +553,8 @@ class Db extends \PDO
 
 		// FROM clause
 		
-		$strFROM	= $this->genClause ('FROM', $arrParams['from'], FALSE, ' ');
-
+		$strFROM	= $this->genClause ('FROM', $arrParams['from'], FALSE, ',');
+		
 		// WHERE clause
 
 		if (isset ($arrParams['where']) && is_array ($arrParams['where']))
@@ -567,9 +567,7 @@ class Db extends \PDO
 		}
 		else
 		{
-
 			$strWHERE = NULL;
-
 		}
 
 		// GROUP BY clause

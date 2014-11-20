@@ -388,10 +388,11 @@ class Parser
 	/**
 	 * Convert a table name class name
 	 * @param string $table Table name
+	 * @param string $namespace Namespace
 	 * @return string
 	 */
 	
-	public function convertToClassName ($table)
+	public function convertToClassName ($table, $namespace = 'Sonic\\Model\\')
 	{
 		
 		$arr		= explode ('_', $table);
@@ -401,7 +402,7 @@ class Parser
 			$val = ucfirst (strtolower ($val));
 		}
 		
-		return 'Sonic\\Model\\' . implode ('\\', $arr);
+		return $namespace . implode ('\\', $arr);
 		
 	}
 	

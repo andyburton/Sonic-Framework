@@ -40,11 +40,23 @@ class Collection extends \ArrayObject
 			
 			$arr	= array ();
 			$it		= $this->getIterator ();
+			$new	= TRUE;
 
 			while ($it->valid ())
 			{
-				$arr[$it->key ()] = call_user_func_array (array ($it->current (), $function), $args);
+				
+				$result = call_user_func_array (array ($it->current (), $function), $args);
+				
+				if ($new && $result instanceof \Sonic\Model)
+				{
+					$arr = new self;
+				}
+				
+				$new = FALSE;
+				
+				$arr[$it->key ()]	= $result;
 				$it->next ();
+				
 			}
 
 			return $arr;

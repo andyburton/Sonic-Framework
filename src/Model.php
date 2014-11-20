@@ -648,7 +648,7 @@ class Model
 		// Prepare query
 		
 		$query	= $db->prepare ('
-		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
+		INSERT INTO `' . static::$dbTable . '` (' . $create['columns'] . ')
 		VALUES ( ' . $create['values'] . ')
 		');
 		
@@ -733,7 +733,7 @@ class Model
 		// Prepare query
 		
 		$query	= $db->prepare ('
-		INSERT INTO ' . static::$dbTable . ' (' . $create['columns'] . ')
+		INSERT INTO `' . static::$dbTable . '` (' . $create['columns'] . ')
 		VALUES ( ' . $create['values'] . ') 
 		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(' . static::$pk . '), ' . $updateVals . '
 		');
@@ -1037,7 +1037,7 @@ class Model
 			// Prepare query
 
 			$query = $db->prepare ('
-			SELECT * FROM ' . static::$dbTable . '
+			SELECT * FROM `' . static::$dbTable . '`
 			WHERE ' . static::$pk . ' = :pk
 			');
 
@@ -1183,7 +1183,7 @@ class Model
 		// Prepare query
 		
 		$query = $db->prepare ('
-		UPDATE ' . static::$dbTable . '
+		UPDATE `' . static::$dbTable . '`
 		SET ' . $values . '
 		WHERE ' . static::$pk . ' = :pk
 		');
@@ -1251,7 +1251,7 @@ class Model
 		// Prepare query
 		
 		$query = $db->prepare ('
-		UPDATE ' . static::$dbTable . '
+		UPDATE `' . static::$dbTable . '`
 		SET ' . $name . ' = :val 
 		WHERE ' . static::$pk . ' = :pk
 		');
@@ -1318,7 +1318,7 @@ class Model
 		// Prepare query
 		
 		$query = $db->prepare ('
-		UPDATE ' . static::$dbTable . '
+		UPDATE `' . static::$dbTable . '`
 		SET ' . $name . ' = :val 
 		WHERE ' . static::$pk . ' = :pk
 		');
@@ -1396,7 +1396,7 @@ class Model
 		// Prepare query
 		
 		$query = $db->prepare ('
-			DELETE FROM ' . static::$dbTable . ' 
+			DELETE FROM `' . static::$dbTable . '` 
 			' . $db->genClause ('WHERE', $db->genWHERE ($params['where']))
 		);
 		
@@ -1925,7 +1925,7 @@ class Model
 		
 		// Set table
 
-		$params['from']	= static::$dbTable;
+		$params['from']	= '`' . static::$dbTable . '`';
 		
 		// Return value
 
@@ -1953,7 +1953,7 @@ class Model
 		
 		// Set table
 
-		$params['from']	= static::$dbTable;
+		$params['from']	= '`' . static::$dbTable . '`';
 		
 		// Return value
 
@@ -2568,7 +2568,7 @@ class Model
 
 		if (!isset ($params['from']))
 		{
-			$params['from']		= static::$dbTable;
+			$params['from']		= '`' . static::$dbTable . '`';
 		}
 		
 		// Get database slave for read
@@ -2606,7 +2606,7 @@ class Model
 
 		if (!isset ($params['from']))
 		{
-			$params['from']		= static::$dbTable;
+			$params['from']		= '`' . static::$dbTable . '`';
 		}
 		
 		// Get database slave for read
@@ -2654,7 +2654,7 @@ class Model
 		
 		// Return objects
 		
-		return self::_arrayToObjects ($rows);
+		return self::_arrayToObjects ($rows, $key);
 		
 	}
 	
@@ -2685,7 +2685,7 @@ class Model
 		
 		// Set object array
 		
-		$objs	=  new Resource\Model\Collection ();
+		$objs	=  new Resource\Model\Collection;
 		
 		// If no data
 
@@ -2717,9 +2717,9 @@ class Model
 			
 			// Add to the array
 			
-			if ($key)
+			if ($key && isset ($row[$key]))
 			{
-				$objs[$obj->iget ($key)]	= $obj;
+				$objs[$row[$key]]	= $obj;
 			}
 			else
 			{
@@ -2757,7 +2757,7 @@ class Model
 
 		if (!isset ($params['from']))
 		{
-			$params['from']		= static::$dbTable;
+			$params['from']		= '`' . static::$dbTable . '`';
 		}
 		
 		// Get database slave for read
@@ -2800,7 +2800,7 @@ class Model
 
 		if (!isset ($params['from']))
 		{
-			$params['from']		= static::$dbTable;
+			$params['from']		= '`' . static::$dbTable . '`';
 		}
 		
 		// Get database slave for read
@@ -3260,6 +3260,81 @@ class Model
 		}
 
 		return $return;
+		
+	}
+	
+	
+	/**
+	 * Return related objects from a many-to-many pivot table
+	 * @param \Sonic\Model $target Target objects to return
+	 * @param \Sonic\Model $pivot Pivot object
+	 * @return boolean|Model\Collection
+	 */
+	
+	public function getFromPivot (\Sonic\Model $target, \Sonic\Model $pivot, $key = FALSE, $params = [])
+	{
+		
+		// Find the pivot attribute pointing to the source
+		
+		$sourceClass	= get_called_class ();
+		$sourceRef		= FALSE;
+		
+		foreach ($pivot::$attributes as $name => $attribute)
+		{
+			if (isset ($attribute['relation']) &&
+				$attribute['relation'] == $sourceClass)
+			{
+				$sourceRef = $name;
+				break;
+			}
+		}
+		
+		if (!$sourceRef)
+		{
+			return FALSE;
+		}
+		
+		// Find the pivot attribute pointing to the target
+		
+		$targetClass	= get_class ($target);
+		$targetRef		= FALSE;
+		
+		foreach ($pivot::$attributes as $name => $attribute)
+		{
+			if (isset ($attribute['relation']) &&
+				$attribute['relation'] == $targetClass)
+			{
+				$targetRef = $name;
+				break;
+			}
+		}
+		
+		if (!$targetRef)
+		{
+			return FALSE;
+		}
+		
+		// Query parameters
+		
+		if (!isset ($params['select']))
+		{
+			$params['select']	= 'DISTINCT t.*';
+		}
+		
+		if (isset ($params['from']) && !is_array ($params['from']))
+		{
+			$params['from']	= [$params['from']];
+		}
+		
+		$params['from'][]	= $target::$dbTable . ' as t';
+		$params['from'][]	= $pivot::$dbTable . ' as p';
+		
+		$params['where'][]	= ['p.' . $sourceRef, $this->getPK ()];
+		$params['where'][]	= 'p.' . $targetRef . ' = t.' . $target::$pk;
+		
+		// Get related objects
+		
+		return $target::_getObjects ($params, $key);
 		
 	}
 	

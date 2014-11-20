@@ -213,6 +213,29 @@ class File
 	
 	
 	/**
+	 * Return MD5 hash for the file
+	 * @return string
+	 */
+	
+	public function getMD5 ()
+	{
+		return self::_getMD5 ($this->getPath () . $this->getFilename ());
+	}
+	
+	
+	/**
+	 * Return an MD5 hash for a file
+	 * @param string $file File path
+	 * @return string
+	 */
+	
+	public static function _getMD5 ($file)
+	{
+		return md5_file ($file);
+	}
+	
+	
+	/**
 	 * Set absolute directory path
 	 * @param string $path Directory path
 	 * @return boolean

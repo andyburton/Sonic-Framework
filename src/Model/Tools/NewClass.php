@@ -531,6 +531,7 @@ class NewClass extends \Sonic\Model
 		$db	= new Db;
 		
 		$relations	= $db->getRelations ($this->get ('database'), $this->get ('table'));
+		$namespace	= $this->getRootNamespace ();
 
 		// Loop through constraints
 
@@ -544,12 +545,40 @@ class NewClass extends \Sonic\Model
 				
 				// Add relationship
 				
-				$this->attributeCache[$constraint['attribute']]['relation']	= $this->parser->convertToClassName ($constraint['table']);
+				$this->attributeCache[$constraint['attribute']]['relation']	= $this->parser->convertToClassName ($constraint['table'], $namespace);
 				
 			}
 
 		}
 		
+	}
+	
+	
+	/**
+	 * Return root namespace
+	 * @return string
+	 */
+	
+	public function getRootNamespace ()
+	{
+		
+		$arr		= explode ('\\', $this->get ('namespace'));
+		$table		= explode ('_', $this->get ('table'));
+		$ns			= [];
+		
+		foreach ($arr as $nsSegment)
+		{
+			$tableSegment	= array_shift ($table);
+			if (strtolower ($nsSegment) != strtolower ($tableSegment))
+			{
+				$ns[]	= $nsSegment;
+				array_unshift ($table, $tableSegment);
+			}
+		}
+		
+		$namespace	= join ('\\', $ns) . '\\';
+		
+		return $namespace;
 	}
 	
 	

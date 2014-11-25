@@ -671,6 +671,83 @@ class Parser
 	
 	
 	/**
+	 * Print a variable - very useful for debugging
+	 * @param integer $mode Which display mode to use
+	 *   0 - print_r, default
+	 *   1 - var_dump
+	 * @param boolean $return Return string rather than output
+	 * @param boolean $pre Whether to wrap output in pre tags
+	 * @return void|string
+	 */
+	
+	public static function pre ($var, $mode = 0, $return = FALSE, $pre = TRUE)
+	{
+		
+		// If the variable is an object of type \Sonic\Model remove resources
+		
+		if (is_object ($var) && $var instanceof \Sonic\Model)
+		{
+			$var = clone $var;
+			$var->removeResources ();
+		}
+		
+		// Else if the variable is an array
+		
+		else if (is_array ($var))
+		{
+			
+			// Foreach entry that is an object of type \Sonic\Model remove resources
+			
+			foreach ($var as &$val)
+			{
+				if (is_object ($val) && $val instanceof \Sonic\Model)
+				{
+					$val = clone $val;
+					$val->removeResources ();
+				}
+			}
+			
+		}
+
+		// Generate message
+		
+		$msg	= NULL;
+		
+		switch ($mode)
+		{
+			
+			case 0:
+				$msg = print_r ($var, TRUE);
+				break;
+			
+			case 1:
+				$msg = var_dump ($var);
+				break;
+			
+		}
+		
+		// Pre tags
+		
+		if ($pre)
+		{
+			$msg = '<pre>' . $msg . '</pre>';
+		}
+		
+		// Return or output
+		
+		if ($return)
+		{
+			return $msg;
+		}
+		else
+		{
+			echo $msg;
+		}
+		
+	}
+	
+	
+	/**
 	 * Custom functions
 	 * Should all be static and start with '_validate' followed by the function name
 	 * e.g. 'email' would be '_validateEmail'

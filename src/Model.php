@@ -3605,55 +3605,7 @@ class Model
 	
 	public static function pre ($var, $mode = 0)
 	{
-		
-		// If the variable is an object of type \Sonic\Model
-		
-		if (is_object ($var) && $var instanceof self)
-		{
-			
-			// Remove resources
-			
-			$var = clone $var;
-			$var->removeResources ();
-			
-		}
-		
-		// Else if the variable is an array
-		
-		else if (is_array ($var))
-		{
-			
-			// Foreach entry that is an object of type \Sonic\Model remove resources
-			
-			foreach ($var as &$val)
-			{
-				
-				if (is_object ($val) && $val instanceof self)
-				{
-					$val = clone $val;
-					$val->removeResources ();
-				}
-				
-			}
-			
-		}
-
-		// Output
-		
-		switch ($mode)
-		{
-			
-			case 0:
-				echo '<pre>' . print_r ($var, TRUE) . '</pre>';
-				break;
-			
-			case 1:
-				echo '<pre>' . var_dump ($var) . '</pre>';
-				break;
-			
-		}
-		
-		
+		Resource\Parser::pre ();
 	}
 	
 	

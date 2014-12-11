@@ -204,36 +204,4 @@ class Route extends \Sonic\Resource\Controller\URL
 	}
 	
 	
-	/**
-	 * Instantiate and return controller object
-	 * @param string $stripPath Class path to strip
-	 * @return \Sonic\Controller
-	 */
-	
-	public function createController ($stripPath = NULL)
-	{
-		
-		// Instantiate controller
-		
-		$controllerObj		= new $this->controller;
-		
-		// Set controller variables from the url processor
-		
-		$controllerObj->controller	= $this->controller;
-		$controllerObj->action		= $this->action;
-		
-		// Strip initial path from controller
-		
-		if ($stripPath && substr ($controllerObj->controller, 0, strlen ($stripPath)) == $stripPath)
-		{
-			$controllerObj->controller = substr ($controllerObj->controller, strlen ($stripPath));
-		}
-		
-		// Return controller object
-		
-		return $controllerObj;
-		
-	}
-	
-	
 }

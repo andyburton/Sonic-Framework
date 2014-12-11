@@ -200,22 +200,13 @@ class REST extends \Sonic\Resource\Controller\URL
 	public function createController ($stripPath = NULL)
 	{
 		
-		// Instantiate controller
+		// Get controller object from parent class
 		
-		$controllerObj		= new $this->controller;
+		$controllerObj		= parent::createController ($stripPath);
 		
-		// Set controller variables from the url processor
+		// Add ID
 		
-		$controllerObj->controller	= $this->controller;
-		$controllerObj->action		= $this->action;
-		$controllerObj->id			= $this->id;
-		
-		// Strip initial path from controller
-		
-		if ($stripPath && substr ($controllerObj->controller, 0, strlen ($stripPath)) == $stripPath)
-		{
-			$controllerObj->controller = substr ($controllerObj->controller, strlen ($stripPath));
-		}
+		$controllerObj->id	= $this->id;
 		
 		// Return controller object
 		

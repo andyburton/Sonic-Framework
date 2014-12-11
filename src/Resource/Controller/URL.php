@@ -13,5 +13,7 @@ abstract class URL
 	public $action		= FALSE;
 	
 	abstract public function Process ();
+	abstract public function findController ();
+	abstract public function createController ();
 	
 }

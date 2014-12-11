@@ -45,17 +45,37 @@ abstract class JSON extends \Sonic\Controller
 	
 	protected function getArg ($name)
 	{
-		return isset ($this->request['json']->$name)? $this->request['json']->$name : parent::getArg ($name);
+		if (isset ($this->request['json']->$name))
+		{
+			return $this->getJSONArg ($name);
+		}
+		else
+		{
+			return parent::getArg ($name);
+		}
+	}
+	
+	
+	/**
+	 * Return a JSON argument or FALSE if not set
+	 * @param string $name Argument name
+	 * @return mixed
+	 */
+	
+	protected function getJSONArg ($name)
+	{
+		return isset ($this->request['json']->$name)? $this->request['json']->$name : FALSE;
 	}
 	
 	
 	/**
 	 * Set success response
 	 * @param array $response Response
+	 * @param integer $httpCode HTTP status code
 	 * @return TRUE
 	 */
 	
-	protected function success ($response = array ())
+	protected function success ($response = array (), $httpCode = 200)
 	{
 		
 		if (!is_array ($response))
@@ -67,6 +87,11 @@ abstract class JSON extends \Sonic\Controller
 		$this->view->response['success']	= 1;
 		$this->view->response['time']		= time ();
 		
+		if ($httpCode)
+		{
+			$this->httpStatus ($httpCode);
+		}
+		
 		return TRUE;
 		
 	}
@@ -76,10 +101,11 @@ abstract class JSON extends \Sonic\Controller
 	 * Set error response
 	 * @param \Sonic\Controller\Error|integer|string $message Error message object, error code or message string
 	 * @param integer $code Error code, only used if message is a string
+	 * @param integer $httpCode HTTP status code
 	 * @return FALSE
 	 */
 	
-	protected function error ($message = 'invalid request', $code = 0) 
+	protected function error ($message = 'invalid request', $code = 0, $httpCode = 0) 
 	{
 		
 		if (is_numeric ($message))
@@ -99,6 +125,11 @@ abstract class JSON extends \Sonic\Controller
 			'error_code'		=> $code,
 			'error_description'	=> $message
 		);
+		
+		if ($httpCode)
+		{
+			$this->httpStatus ($httpCode);
+		}
 		
 		return FALSE;
 		

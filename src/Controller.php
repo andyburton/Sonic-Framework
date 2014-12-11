@@ -155,7 +155,7 @@ class Controller
 		{
 			return $this->getURLArg ($name);
 		}
-			
+		
 	}
 	
 	
@@ -180,6 +180,18 @@ class Controller
 	protected function getPostArg ($name)
 	{
 		return isset ($this->request['post'][$name])? $this->request['post'][$name] : FALSE;
+	}
+	
+	
+	/**
+	 * Set HTTP status code, return the previous status code
+	 * @param integer $code HTTP Status Code
+	 * @return integer
+	 */
+	
+	protected function httpStatus ($code = 200)
+	{
+		return http_response_code ($code);
 	}
 	
 	

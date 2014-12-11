@@ -126,7 +126,7 @@ class Bootstrap
 		
 		// Create controller
 		
-		$controllerObj		= $this->urlProcessor->createController ();
+		$controllerObj		= $this->urlProcessor->createController ($controllerClass);
 		
 		// Set controller module
 		

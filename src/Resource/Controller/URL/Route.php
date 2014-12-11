@@ -109,7 +109,7 @@ class Route extends \Sonic\Resource\Controller\URL
 		// Try action as controller with index action
 		// e.g. /admin -> \Sonic\Controller\Admin->index ()
 
-		elseif (class_exists ($controller . '\\' . ucfirst ($thi->action)) && 
+		elseif (class_exists ($controller . '\\' . ucfirst ($this->action)) && 
 			method_exists ($controller . '\\' . ucfirst ($this->action), 'index'))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->action);

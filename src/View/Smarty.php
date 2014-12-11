@@ -53,9 +53,24 @@ class Smarty extends \Smarty
 		
 		$template	= $module? $module . '/' : '';
 		
-		// Add the controller path and convert \ to /
+		// If theres a controller then add it
 		
-		$template	.= $controller? str_replace ('\\', '/', $controller) . '/' : '';
+		if ($controller)
+		{
+		
+			// Split controller and remove the final block if its Index
+
+			$arrController	= explode ('\\', $controller);
+			$pop = strtolower (array_pop ($arrController));
+			
+			if ($pop != 'index')
+			{
+				$arrController[] = $pop;
+			}
+
+			$template	.= join ('/', $arrController) . '/';
+				
+		}
 		
 		// Remove initial /
 		

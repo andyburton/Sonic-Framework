@@ -30,6 +30,14 @@ class User extends \Sonic\Model
 	
 	public $session				= FALSE;
 	
+	
+	/**
+	 * Tmp Session ID
+	 * @var string
+	 */
+	
+	private $sessionID			= FALSE;
+	
 	/**
 	 * User Permissions
 	 * @var array
@@ -69,20 +77,20 @@ class User extends \Sonic\Model
 	
 	/**
 	 * Instantiate class
-	 * @param string $session_id Session ID
-	 * @return  @return \Sonic\Resource\User
+	 * @param string $sessionID Session ID
+	 * @return
 	 */
 	
-	public function __construct ($session_id = FALSE)
+	public function __construct ($sessionID = FALSE)
 	{
 		
 		// Call parent
 		
 		parent::__construct ();
 		
-		// Set session
+		// Set session ID
 		
-		$this->session	= Session::singleton ($session_id);
+		$this->sessionID	= $sessionID;
 		
 	}
 	
@@ -280,6 +288,23 @@ class User extends \Sonic\Model
 	
 	
 	/**
+	 * Return user session
+	 * @return \Sonic\Resource\Session
+	 */
+	
+	public function session ()
+	{
+		
+		if (!$this->session instanceof Session)
+		{
+			$this->session	= Session::singleton ($this->sessionID);
+		}
+		
+		return $this->session;
+		
+	}
+	
+	/**
 	 * Set user data from a session
 	 * @return array
 	 */
@@ -289,7 +314,7 @@ class User extends \Sonic\Model
 		
 		if (!$this->_sessionData)
 		{
-			$this->_sessionData	= unserialize ($this->session->get (get_called_class ()));
+			$this->_sessionData	= unserialize ($this->session ()->get (get_called_class ()));
 		}
 		
 		return $this->_sessionData;
@@ -314,8 +339,8 @@ class User extends \Sonic\Model
 		
 		$this->fromArray ($arr, FALSE, FALSE);
 		
-		$this->loginTimestamp	= !\Sonic\Resource\Parser::_ak ($arr, 'login_timestamp', FALSE);
-		$this->lastAction		= !\Sonic\Resource\Parser::_ak ($arr, 'last_action', FALSE);
+		$this->loginTimestamp	= !Parser::_ak ($arr, 'login_timestamp', FALSE);
+		$this->lastAction		= !Parser::_ak ($arr, 'last_action', FALSE);
 		
 	}
 	
@@ -333,7 +358,7 @@ class User extends \Sonic\Model
 		$arr['login_timestamp']	= $this->loginTimestamp;
 		$arr['last_action']		= $this->lastAction;
 		
-		$this->session->set (get_called_class (), serialize ($arr));
+		$this->session ()->set (get_called_class (), serialize ($arr));
 		
 	}
 	
@@ -351,7 +376,7 @@ class User extends \Sonic\Model
 		$this->lastAction		= time ();
 		$arr['last_action']		= $this->lastAction;
 		
-		$this->session->set (get_called_class (), serialize ($arr));
+		$this->session ()->set (get_called_class (), serialize ($arr));
 		
 	}
 	
@@ -399,7 +424,7 @@ class User extends \Sonic\Model
 		
 		// Check if the session has timed out
 		
-		if ($this->session->timedOut ($session['last_action']))
+		if ($this->session ()->timedOut ($session['last_action']))
 		{
 			return $this->Logout ('timeout');
 		}
@@ -414,10 +439,10 @@ class User extends \Sonic\Model
 		
 		// Redirect to originally requested URL
 		
-		if ($this->session->get ('requested_url'))
+		if ($this->session ()->get ('requested_url'))
 		{
-			$url = $this->session->get ('requested_url');
-			$this->session->set ('requested_url', FALSE);
+			$url = $this->session ()->get ('requested_url');
+			$this->session ()->set ('requested_url', FALSE);
 			new Redirect ($url);
 		}
 		
@@ -458,7 +483,7 @@ class User extends \Sonic\Model
 		
 		// Check if the session has timed out
 		
-		if ($this->session->timedOut ($session['last_action']))
+		if ($this->session ()->timedOut ($session['last_action']))
 		{
 			$this->loggedIn	= FALSE;
 			return FALSE;
@@ -493,35 +518,35 @@ class User extends \Sonic\Model
 		
 		// No id
 		
-		if (!\Sonic\Resource\Parser::_ak ($session, 'id', FALSE))
+		if (!Parser::_ak ($session, 'id', FALSE))
 		{
 			return 'no_id';
 		}
 		
 		// No email
 		
-		if (!\Sonic\Resource\Parser::_ak ($session, 'email', FALSE))
+		if (!Parser::_ak ($session, 'email', FALSE))
 		{
 			return 'no_email';
 		}
 		
 		// No login timestamp
 		
-		if (!\Sonic\Resource\Parser::_ak ($session, 'login_timestamp', FALSE))
+		if (!Parser::_ak ($session, 'login_timestamp', FALSE))
 		{
 			return 'no_login_timestamp';
 		}
 		
 		// No last action
 		
-		if (!\Sonic\Resource\Parser::_ak ($session, 'last_action', FALSE))
+		if (!Parser::_ak ($session, 'last_action', FALSE))
 		{
 			return 'no_last_action';
 		}
 		
 		// No active status
 		
-		if (!\Sonic\Resource\Parser::_ak ($session, 'active', FALSE))
+		if (!Parser::_ak ($session, 'active', FALSE))
 		{
 			return 'no_active';
 		}
@@ -558,7 +583,7 @@ class User extends \Sonic\Model
 		
 		// Destroy session
 		
-		$this->session->Destroy ();
+		$this->session ()->Destroy ();
 		
 		// Remove session data
 		
@@ -566,8 +591,8 @@ class User extends \Sonic\Model
 		
 		// Create a new session
 		
-		$this->session->Create ();
-		$this->session->Refresh ();
+		$this->session ()->Create ();
+		$this->session ()->Refresh ();
 		
 		// Store requested URL if there is a reason we're logging out
 		// If no reason then just a logout request, so we dont want to store
@@ -575,7 +600,7 @@ class User extends \Sonic\Model
 		
 		if ($reason !== FALSE)
 		{
-			$this->session->set ('requested_url', $_SERVER['REQUEST_URI']);
+			$this->session ()->set ('requested_url', $_SERVER['REQUEST_URI']);
 		}
 		
 		// Return

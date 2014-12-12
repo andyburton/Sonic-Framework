@@ -580,43 +580,47 @@ class Parser
 	/**
 	 * Returns the value of the key of the passed array if it exists or null if not
 	 * This saves having to explictly declare each array key to check that they exist
-	 * 
-	 * @param array $arrArray		The array to get the key from
-	 * @param string $mixKey		The name of the key or an array of keys if checking a nested array
-	 * @param mixed $mixReturn=NULL	The value to return if the array key does not exist
+	 * @param array $arr The array to get the key from
+	 * @param string $key The name of the key or an array of keys if checking a nested array
+	 * @param mixed $fallback The fallback value to return if the array key does not exist
 	 * @return mixed
 	 */
 	
-	public static function _ak ($arrArray, $mixKey, $mixReturn = NULL)
+	public static function _ak ($arr, $key, $fallback = NULL)
+	{
+		return self::ak ($arr, $key, $fallback);
+	}
+	
+	public static function ak ($arr, $key, $fallback = NULL)
 	{
 		
-		if (is_array ($arrArray))
+		if (is_array ($arr))
 		{
 			
-			if (is_array ($mixKey))
+			if (is_array ($key))
 			{
 				
-				// Store $arrArray in a new var
+				// Store $arr in a new var
 				
-				$arrPrev = $arrArray;
+				$prev = $arr;
 				
-				// Loop through each entry in $mixKey
+				// Loop through each entry in $key
 				
-				for ($i = 0; $i < count ($mixKey); $i++)
+				for ($i = 0; $i < count ($key); $i++)
 				{
 					
 					// If we are not at the last entry
 					
-					if ($i < count ($mixKey)-1)
+					if ($i < count ($key)-1)
 					{
 						
 						// If the current entry is an array
-						// update $arrPrev to the current entry
+						// update $prev to the current entry
 						
-						if (is_array (self::_ak ($arrPrev, $mixKey[$i])))
+						if (is_array (self::_ak ($prev, $key[$i])))
 						{
 							
-							$arrPrev = $arrPrev[$mixKey[$i]];
+							$prev = $prev[$key[$i]];
 							
 						}
 						
@@ -634,11 +638,11 @@ class Parser
 					else
 					{
 						
-						// If $arrPrev is an array and the key exists return it
+						// If $prev is an array and the key exists return it
 						
-						if (is_array ($arrPrev) && isset ($arrPrev[$mixKey[$i]]))
+						if (is_array ($prev) && isset ($prev[$key[$i]]))
 						{
-							return $arrPrev[$mixKey[$i]];
+							return $prev[$key[$i]];
 						}
 						
 					}
@@ -647,16 +651,16 @@ class Parser
 				
 			}
 			
-			// $mixKey is not an array
+			// $key is not an array
 			
 			else
 			{
 				
 				// If the key exists in the array return it
 				
-				if (isset ($arrArray[$mixKey]))
+				if (isset ($arr[$key]))
 				{
-					return $arrArray[$mixKey];
+					return $arr[$key];
 				}
 				
 			}
@@ -665,7 +669,7 @@ class Parser
 		
 		// Return the default return value as the key was not found in the array
 		
-		return $mixReturn;
+		return $fallback;
 		
 	}
 	

@@ -3600,12 +3600,14 @@ class Model
 	 * @param integer $mode Which display mode to use
 	 *   0 - print_r, default
 	 *   1 - var_dump
-	 * @return void
+	 * @param boolean $return Return string rather than output
+	 * @param boolean $pre Whether to wrap output in pre tags
+	 * @return void|string
 	 */
 	
-	public static function pre ($var, $mode = 0)
+	public static function pre ($var, $mode = 0, $return = FALSE, $pre = TRUE)
 	{
-		Resource\Parser::pre ();
+		Resource\Parser::pre ($var, $mode, $return, $pre);
 	}
 	
 	

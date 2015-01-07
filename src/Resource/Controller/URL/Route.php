@@ -100,7 +100,8 @@ class Route extends \Sonic\Resource\Controller\URL
 		// e.g. /admin/login -> \Sonic\Controller\Admin->login ()
 
 		if (class_exists ($controller) && 
-			method_exists ($controller, $this->action))
+			method_exists ($controller, $this->action) &&
+			static::isInstantiable ($controller))
 		{
 			$this->controller	= $controller;
 			return TRUE;
@@ -110,7 +111,8 @@ class Route extends \Sonic\Resource\Controller\URL
 		// e.g. /admin -> \Sonic\Controller\Admin->index ()
 
 		elseif (class_exists ($controller . '\\' . ucfirst ($this->action)) && 
-			method_exists ($controller . '\\' . ucfirst ($this->action), 'index'))
+			method_exists ($controller . '\\' . ucfirst ($this->action), 'index') &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->action)))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->action);
 			$this->action		= 'index';
@@ -124,7 +126,8 @@ class Route extends \Sonic\Resource\Controller\URL
 
 			// Try index controller
 
-			if (class_exists ($controller . '\\Index'))
+			if (class_exists ($controller . '\\Index') &&
+			static::isInstantiable ($controller . '\\Index'))
 			{
 
 				// Try action on index controller
@@ -155,7 +158,8 @@ class Route extends \Sonic\Resource\Controller\URL
 
 		if ($captureall && 
 			class_exists ($controller) && 
-			method_exists ($controller, 'captureall'))
+			method_exists ($controller, 'captureall') &&
+			static::isInstantiable ($controller))
 		{
 			$this->controller	= $controller;
 			$this->action		= 'captureall';
@@ -167,7 +171,8 @@ class Route extends \Sonic\Resource\Controller\URL
 
 		elseif ($captureall && 
 			class_exists ($controller . '\\' . ucfirst ($this->action)) && 
-			method_exists ($controller . '\\' . ucfirst ($this->action), 'captureall'))
+			method_exists ($controller . '\\' . ucfirst ($this->action), 'captureall') &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->action)))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->action);
 			$this->action		= 'captureall';
@@ -178,7 +183,8 @@ class Route extends \Sonic\Resource\Controller\URL
 		// e.g. /admin -> \Sonic\Controller\Admin\Index->index ()
 
 		elseif (class_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index') && 
-			method_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index', 'index'))
+			method_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index', 'index') &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->action) . '\\Index'))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->action) . '\\Index';
 			$this->action		= 'index';
@@ -190,7 +196,8 @@ class Route extends \Sonic\Resource\Controller\URL
 
 		elseif ($captureall && 
 			class_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index') && 
-			method_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index', 'captureall'))
+			method_exists ($controller . '\\' . ucfirst ($this->action) . '\\Index', 'captureall') &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->action) . '\\Index'))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->action) . '\\Index';
 			$this->action		= 'captureall';

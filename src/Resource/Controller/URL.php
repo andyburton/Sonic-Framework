@@ -76,4 +76,16 @@ abstract class URL
 	}
 	
 	
+	/**
+	 * Check whether a class is instantiable
+	 * @param string $class Class name
+	 */
+	
+	public static function isInstantiable ($class)
+	{
+		$reflect = new \ReflectionClass ($class);
+		return $reflect->isInstantiable ();
+	}
+	
+	
 }

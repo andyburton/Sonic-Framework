@@ -144,7 +144,8 @@ class REST extends \Sonic\Resource\Controller\URL
 		// e.g. GET /message/1 -> \Sonic\Controller\Message->get ()
 
 		if (class_exists ($controller) && 
-			method_exists ($controller, $this->action))
+			method_exists ($controller, $this->action) &&
+			static::isInstantiable ($controller))
 		{
 			$this->controller	= $controller;
 			return TRUE;
@@ -155,7 +156,8 @@ class REST extends \Sonic\Resource\Controller\URL
 
 		elseif ($captureall && 
 			class_exists ($controller) && 
-			method_exists ($controller, 'captureall'))
+			method_exists ($controller, 'captureall') &&
+			static::isInstantiable ($controller))
 		{
 			$this->controller	= $controller;
 			$this->action		= 'captureall';
@@ -166,9 +168,11 @@ class REST extends \Sonic\Resource\Controller\URL
 		// e.g. POST /message/send -> \Sonic\Controller\Message\Send->post ()
 
 		elseif (class_exists ($controller . '\\' . ucfirst ($this->id)) && 
-			method_exists ($controller . '\\' . ucfirst ($this->id), $this->action))
+			method_exists ($controller . '\\' . ucfirst ($this->id), $this->action) &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->id)))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->id);
+			$this->id			= FALSE;
 			return TRUE;
 		}
 
@@ -177,10 +181,12 @@ class REST extends \Sonic\Resource\Controller\URL
 
 		elseif ($captureall && 
 			class_exists ($controller . '\\' . ucfirst ($this->id)) && 
-			method_exists ($controller . '\\' . ucfirst ($this->id), 'captureall'))
+			method_exists ($controller . '\\' . ucfirst ($this->id), 'captureall') &&
+			static::isInstantiable ($controller . '\\' . ucfirst ($this->id)))
 		{
 			$this->controller	= $controller . '\\' . ucfirst ($this->id);
 			$this->action		= 'captureall';
+			$this->id			= FALSE;
 			return TRUE;
 		}
 

@@ -232,7 +232,7 @@ class User extends \Sonic\Model
 		
 		// Get objects
 		
-		$objs	= is_array ($params)? self::_getObjects ($params, $db) : self::_read ($params, $db);
+		$objs	= is_array ($params)? self::_getObjects ($params, $db) : [self::_read ($params, $db)];
 		
 		// Remove each
 		
@@ -295,7 +295,7 @@ class User extends \Sonic\Model
 	public function session ()
 	{
 		
-		if (!$this->session instanceof Session)
+		if (!($this->session instanceof Session))
 		{
 			$this->session	= Session::singleton ($this->sessionID);
 		}

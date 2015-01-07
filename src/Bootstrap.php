@@ -58,7 +58,6 @@ class Bootstrap
 	 * Instantiate class
 	 * @param boolean $run Run the bootstrap from the constructor, default to FALSE
 	 * @param boolean $displayView Whether to display the view when run is called
-	 * 
 	 * @return void
 	 */
 	
@@ -83,7 +82,7 @@ class Bootstrap
 	
 	public function Run ($displayView = TRUE)
 	{
-	
+		
 		// Default to Route url processor if none is set
 
 		if (!$this->urlProcessor)

@@ -130,7 +130,11 @@ class Controller
 		{
 			$this->template	= $this->view->defaultTemplate ($this->module, $this->controller, $this->action);
 		}
-		
+
+		// Assign controller reference
+
+		$this->view->assign ('controller', $this);
+
 		// Display view
 		
 		$this->view->display ($this->template);

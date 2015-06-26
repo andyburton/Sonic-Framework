@@ -70,14 +70,27 @@ abstract class Session extends \Sonic\Controller\JSON
 		
 		if ($auth !== TRUE)
 		{
-			$this->view->response['auth_fail']	= TRUE;
-			return $this->error ($auth);
+			return $this->authFail ($auth);
 		}
 		
 		// Return
 		
 		return TRUE;
 		
+	}
+
+
+	/**
+	* Set response for an authentication failure
+	* @param string $message Error message
+	* @return false
+	*/
+     
+	protected function authFail ($message = null)
+	{
+		$this->error ($message);
+		$this->view->response['auth_fail']	= TRUE;
+		return FALSE;
 	}
 	
 	

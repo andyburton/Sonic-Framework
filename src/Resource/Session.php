@@ -57,7 +57,6 @@ class Session
 		// Set session related ini settings
 		
 		ini_set ('session.use_only_cookies', 1);
-		ini_set ('mbstring.http_output', 'UTF-8');
 		
 		// Set session cookie parameters
 		

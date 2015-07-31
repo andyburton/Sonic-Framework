@@ -111,8 +111,9 @@ class Parser
 	
 	public static function _Validate ($name, $criteria, $val)
 	{
-		
-		$name	= ucwords ($name);
+
+		$arrName = explode('_', $name);
+		$name	= ucwords(implode(' ', $arrName));
 		
 		// If the value is null
 		
@@ -271,7 +272,7 @@ class Parser
 						
 						if ((int)$criteria['min'] == 1)
 						{
-							$word	= in_array (strtoupper ($name[0]), array ('A', 'E', 'I', 'O'))? 'an' : 'a';
+							$word	= in_array ($name[0], array ('A', 'E', 'I', 'O'))? 'an' : 'a';
 							throw new Parser\Exception ('You must enter ' . $word . ' ' . $name);
 						}
 						else

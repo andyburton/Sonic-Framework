@@ -82,6 +82,10 @@ class Controller
 			'post'		=> $_POST,
 			'server'	=> $_SERVER
 		);
+
+		// Lowercase all invalid actions
+
+		$this->invalidActions = array_map('strtolower', $this->invalidActions);
 		
 	}
 	
@@ -226,6 +230,61 @@ class Controller
 		echo 'Uncaught exception `' . $exception->getMessage () . '` in ' . $exception->getFile () . ' on line ' . $exception->getLine ();
 		
 	}
-	
+
+
+    /**
+     * Return the HTTP method
+     * @return string
+     */
+
+    public function getMethod ()
+    {
+        return $_SERVER['REQUEST_METHOD'];
+    }
+
+
+    /**
+     * Return whether the request method is GET
+     * @return bool
+     */
+
+    public function isGET ()
+    {
+        return $this->getMethod() == 'GET';
+    }
+
+
+    /**
+     * Return whether the request method is POST
+     * @return bool
+     */
+
+    public function isPOST ()
+    {
+        return $this->getMethod() == 'POST';
+    }
+
+
+    /**
+     * Return whether the request method is PUT
+     * @return bool
+     */
+
+    public function isPUT ()
+    {
+        return $this->getMethod() == 'PUT';
+    }
+
+
+    /**
+     * Return whether the request method is DELETE
+     * @return bool
+     */
+
+    public function isDELETE ()
+    {
+        return $this->getMethod() == 'DELETE';
+    }
+
 
 }

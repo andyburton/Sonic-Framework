@@ -157,7 +157,7 @@ class User extends \Sonic\Model
 			
 			// Set message
 			
-			new \Sonic\Message ('The email address `' . $this->iget ('email') . '` is already assigned to an account! Please choose another.');
+			new \Sonic\Message ('error', 'The email address `' . $this->iget ('email') . '` is already assigned to an account! Please choose another.');
 			
 			// Return FALSE
 			

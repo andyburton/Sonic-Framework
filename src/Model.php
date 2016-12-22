@@ -1247,21 +1247,25 @@ class Model
 		}
 		
 		$this->iset ($name, $value);
-		
-		// Prepare query
-		
-		$query = $db->prepare ('
+
+        // Prepare query
+
+        $exclude = [];
+
+        $query = $db->prepare ('
 		UPDATE `' . static::$dbTable . '`
-		SET ' . $name . ' = :val 
+		SET ' . $name . ' = ' . $this->transformValue ($name, $value, $exclude) . '
 		WHERE ' . static::$pk . ' = :pk
 		');
-		
-		// Bind values
-		
-		$query->bindValue (':val',	$this->iget ($name));
-		$query->bindValue (':pk',	$this->iget (static::$pk));
-		
-		// Execute
+
+        // Bind values
+
+        if (!in_array($name, $exclude)) {
+            $query->bindValue (':val',	$this->iget ($name));
+        }
+        $query->bindValue (':pk',	$this->iget (static::$pk));
+
+        // Execute
 
 		if (!$query->execute ())
 		{

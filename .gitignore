@@ -1,9 +1,9 @@
+.idea/
+_ide_helper.php
+.phpstorm.meta.php
+.orig
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
-.idea/
-_ide_helper.php
-.phpstorm.meta.php
-.orig

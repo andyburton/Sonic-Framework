@@ -183,7 +183,7 @@ class Email
 		
 		// If we're using SMTP stream
 
-        if ($this->_useStream)
+        if (defined('EMAIL_SMTP') && EMAIL_SMTP)
         {
 
             // Set send mode to stream
@@ -297,17 +297,17 @@ class Email
 	 * @return void
 	 */
 	
-	public function addRecipient ($email, $name, $details = array ())
+	public function addRecipient ($email, $name = null, $details = array ())
 	{
 
         // Add email and name to details
 
-        $details['email']	= $email;
-        $details['name']		= $name;
+        $details['email']       = $email;
+        $details['name']        = $name;
 
 		// Add the recipient
 		
-		$this->_recipients[]	= $details;
+		$this->_recipients[]    = $details;
 		
 	}
 	
@@ -1359,7 +1359,13 @@ class Email
 
 				// Add recipient header to original headers
 
-				$emailHeaders	= $headers . 'To: ' . $recipient['name'] . '<' . $recipient['email'] . '>' . $this->_nl;
+                if (isset($recipient['name'])) {
+                    $toHeader = $recipient['name'] . '<' . $recipient['email'] . '>';
+                } else {
+                    $toHeader = $recipient['email'];
+                }
+
+				$emailHeaders	= $headers . 'To: ' . $toHeader . $this->_nl;
 
 				// If we're using smarty
 
@@ -1413,8 +1419,9 @@ class Email
 
 				}
                                 
-                                if (is_callable($this->_callbackMethod)) 
-                                        call_user_func($this->_callbackMethod, $this->_subject, $recipient['email'], $this->_fromAddress, $emailMessage);
+                if (is_callable($this->_callbackMethod)) {
+                    call_user_func($this->_callbackMethod, $this->_subject, $recipient['email'], $this->_fromAddress, $emailMessage);
+                }
 
 				// If we're logging the email
 
@@ -1526,7 +1533,11 @@ class Email
 				
 				// Set recipient
 
-				$recipientTo	= $recipient['name'] . '<' . $recipient['email'] . '>';
+                if (isset($recipient['name'])) {
+                    $recipientTo = $recipient['name'] . '<' . $recipient['email'] . '>';
+                } else {
+                    $recipientTo = $recipient['email'];
+                }
 				
 				// Add recipient header to original headers
 

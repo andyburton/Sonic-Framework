@@ -1261,7 +1261,7 @@ class Model
         // Bind values
 
         if (!in_array($name, $exclude)) {
-            $query->bindValue (':val',	$this->iget ($name));
+            $query->bindValue (':' . $name,	$this->iget ($name));
         }
         $query->bindValue (':pk',	$this->iget (static::$pk));
 
